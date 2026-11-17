@@ -80,6 +80,7 @@ A renderer at `/r/compute/`, drawn from the board's `x.compute` (compute's board
 - **Its buttons:** **Screen** opens the job's live screen at the page's foot, read only, as the jobs daemon keeps it;
   **Cancel** (**Withdraw** while queued) and **Seen** call compute's own verbs, so a worker can do the same from the
   `tower` command.
+- **Its foot:** the version of Compute the tower loaded (see [Which version you run](#which-version-you-run)).
 
 | Dark | Light |
 | --- | --- |
@@ -133,6 +134,19 @@ A floor's shelf can frame the page beside its sessions: `{ "label": "Compute", "
 | `resources` | `{ "lanes": 4 }` | What the machine has room for, in units of named resources. A job starts only while the units it needs are free. Machine-wide: a floor's own value is not read. Lowering it never stops a running job. |
 | `defaultNeeds` | `{ "lanes": 1 }` | What a job that says nothing of its needs holds while it runs. |
 
+## Which version you run
+
+The Compute page's foot shows it: **Compute 1.1**, as the tower loaded it, with its state when it isn't running. Its
+tip names the tower's version too; press it to copy that line, for a bug report. `tower extensions` says the same.
+
+The version is `extension.json`'s `version`, `major.minor` as the tower reads it. A major breaks what other
+extensions want of Compute (a name in `contract.json` removed, renamed or changed in meaning); every other release is
+a minor. Releases are tagged `v<version>`, and [CHANGELOG.md](CHANGELOG.md) says what each one changed (each tag's
+message carries its section too). [The release skill](.claude/skills/release/SKILL.md) holds the steps: the checks,
+the changelog, the bump, the tag, and moving a tower onto it.
+
+To update: `git pull` in your clone, then `tower extensions restart compute`, and reload the page.
+
 ## How it works
 
 - **Facts, not state.** `run` appends a `j` fact to compute's `queue` stream (system-wide, so every floor's jobs share
@@ -176,3 +190,5 @@ npm run check       # tower extensions check .
 Try a change on a tower checkout's sandbox (`npm run sandbox -- up` there), never on your real tower first: name this
 folder in the sandbox's config, then `npm run -s sandbox -- run tower x compute jobs`. After a change to the manifest's
 names, `tower extensions freeze .` rewrites `contract.json`: adding a name is a minor, removing or renaming one a major.
+Each change adds its line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md); releasing is
+[the release skill](.claude/skills/release/SKILL.md)'s.
