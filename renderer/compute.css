@@ -72,6 +72,11 @@ button.act.danger:hover { border-color: var(--broken); color: var(--broken-text)
 .screen-head span { flex: 1; font-weight: 600; }
 .screen-term { flex: 1; min-height: 0; padding: var(--sp-s); overflow: hidden; }
 
+/* ---- which version runs, at the page's foot ---- */
+.foot { flex: none; display: flex; justify-content: flex-end; padding: 2px var(--sp-l); border-top: 1px solid var(--line); background: var(--panel); }
+.version { padding: 0 var(--sp-2xs); border: 0; border-radius: 4px; background: none; color: var(--faint); font: var(--fs-xs) var(--ui); cursor: pointer; }
+.version:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 7%, transparent); }
+
 #toasts { position: fixed; right: var(--sp-l); bottom: var(--sp-l); display: grid; gap: var(--sp-s); }
 .toast { padding: var(--sp-s) var(--sp-m); border-radius: var(--radius); background: var(--ink); color: var(--panel); font-size: var(--fs-s); max-width: 28em; }
 

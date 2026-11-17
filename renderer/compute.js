@@ -7,6 +7,8 @@
  */
 import { esc } from '/lib/words.js'
 import { loadTerminalFont, mountTermView, SHELL_SCROLLBACK, terminalFont } from '/lib/terminal.js'
+import { copyText } from '/lib/view.js'
+import { watchTips } from '/lib/chrome.js'
 
 /**
  * @typedef {{ n: number, label: string, argv: string[], cwd: string, project: string, by: string, callsign?: string,
@@ -248,10 +250,36 @@ $('floor').addEventListener('change', (e) => setFilters({ ...filtersOf(), floor:
 $('tag').addEventListener('input', (e) => setFilters({ ...filtersOf(), tag: /** @type {HTMLInputElement} */ (e.target).value }))
 window.addEventListener('hashchange', draw)
 
+// ---------- which version runs ----------
+
+/**
+ * Compute's version at the page's foot, as the tower loaded it (the board's `extensions`), with the tower's: the
+ * extension's server and this page ship together, from one release. Pressing it copies one line for a bug report.
+ */
+const versionSaid = (/** @type {any} */ board) => {
+  const e = board.extensions.find((/** @type {{ id: string }} */ x) => x.id === 'compute')
+  const name = e ? `Compute ${e.version}${e.state === 'started' ? '' : ` (${e.state})`}` : 'Compute (not loaded)'
+  return { name, said: `${name} on the tower ${tower.served.version ?? 'of unknown version'}` }
+}
+const drawVersion = () => {
+  const { name, said } = versionSaid(state.board)
+  const button = $('version')
+  button.textContent = name
+  if (button.dataset.tip !== 'copied') button.dataset.tip = `${said}. Press to copy it`
+}
+$('version').addEventListener('click', () => {
+  const button = $('version')
+  const { said } = versionSaid(state.board)
+  copyText(said).then(() => (button.dataset.tip = 'copied'), (/** @type {Error} */ err) => (button.dataset.tip = err.message))
+  setTimeout(() => (button.dataset.tip = `${said}. Press to copy it`), 1400)
+})
+
+watchTips(document)
 tower.onBoardError((err) => ($('main').innerHTML = `<p class="note broken">${esc(err.message)}</p>`))
 tower.subscribe((board) => {
   state.board = board
   draw()
+  drawVersion()
 })
 // Elapsed times move between boards.
 setInterval(draw, 30_000)
