@@ -8,6 +8,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.2] - 2026-11-17
+
 ### Changed
 - The page wears the Lobby look: the jobs in a card set into the window, the system face, Lobby's greys and blue
   accent in light and dark, sentence-case section heads, flat rows and quiet buttons, and the job's screen in a card
@@ -38,6 +40,7 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.1...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.2...HEAD
+[1.2]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.1...v1.2
 [1.1]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.0...v1.1
 [1.0]: https://github.com/agencyenterprise/tower-extension-compute/releases/tag/v1.0
