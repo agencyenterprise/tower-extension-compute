@@ -5,8 +5,8 @@
  *
  * Tokens first: each block mirrors a block of /design.css, same selector, so each scheme and contrast keeps its own
  * values, and the page follows the tower's `data-scheme` as design.css does. Attention keeps its meaning: needs red,
- * working amber, ready green, quiet grey. --enamel stays the core's: the screen's terminal takes its background from
- * /lib/terminal.js, not from CSS. A state is `t-<tone>` to stay clear of design.css's own class names (`.needs` blinks).
+ * working amber, ready green, quiet grey. --enamel stays the core's: the screen's terminal takes its ground from
+ * --term-bg, which compute.js hands xterm. A state is `t-<tone>` to stay clear of design.css's own class names (`.needs` blinks).
  */
 :root {
   --ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Atkinson Hyperlegible', sans-serif;
@@ -43,6 +43,8 @@
   --shadow-pop: 0 0 0 .5px #00000026, 0 24px 64px -16px #00000047;
   --card-shadow: 0 0 0 .5px #00000014, 0 1px 3px #0000000d;
   --hover: #f6f6f8;
+  /* A job's screen: the dark scheme's card in either scheme, since the terminal's text is light in both. */
+  --term-bg: #222225;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-scheme='light']) {
@@ -209,7 +211,10 @@ section h2 .count { color: var(--faint); font: 500 var(--fs-s)/1 var(--ui); font
 .screen[hidden] { display: none; }
 .screen-head { display: flex; align-items: center; gap: var(--sp-m); padding: var(--sp-s) var(--sp-s) var(--sp-s) var(--sp-xl); border-bottom: 1px solid var(--line); font-size: var(--fs-s); }
 .screen-head span { flex: 1; font-weight: 600; }
-.screen-term { flex: 1; min-height: 0; margin: var(--sp-s); border-radius: var(--radius); overflow: hidden; }
+/* The screen's well fills the card under its head, in the terminal's own ground, and scrolls the job's cells, drawn at
+   the viewer's terminal size (compute.js, openScreen). */
+.screen-term { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-s) var(--sp-m); background: var(--term-bg); color-scheme: dark; }
+.screen-cells { flex: none; }
 
 /* ---- which version runs, in the chrome at the page's foot ---- */
 .foot { order: 1; flex: none; display: flex; justify-content: flex-end; padding: var(--sp-2xs) var(--sp-l); }

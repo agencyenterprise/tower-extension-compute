@@ -8,6 +8,11 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+### Fixed
+- A job's screen draws at your terminal size, as the tower page's terminals do, not at about 6 px: its 120×40 cells
+  get their full size in the card, which scrolls and follows the job's cursor. Its ground is the Lobby's graphite, not
+  the core's green-black, and fills the card under its head.
+
 ## [1.2] - 2026-11-17
 
 ### Changed
