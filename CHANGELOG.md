@@ -8,6 +8,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.3] - 2026-11-17
+
 ### Fixed
 - A job's screen draws at your terminal size, as the tower page's terminals do, not at about 6 px: its 120×40 cells
   get their full size in the card, which scrolls and follows the job's cursor. Its ground is the Lobby's graphite, not
@@ -45,7 +47,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.2...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.3...HEAD
+[1.3]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.2...v1.3
 [1.2]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.1...v1.2
 [1.1]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.0...v1.1
 [1.0]: https://github.com/agencyenterprise/tower-extension-compute/releases/tag/v1.0
