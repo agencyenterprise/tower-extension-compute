@@ -75,7 +75,7 @@ the window, the system face, greys and a blue accent, light or dark as the tower
 job stands: a job past its hours or on your list in red, a running one amber, one that exited 0 green, a queued or
 withdrawn one grey.
 
-- **The top:** each resource's units in use out of the machine's, as a row of lamps that turns red when it is full and
+- **The top:** a **Tower** button back to the tower page, then each resource's units in use out of the machine's, as a row of lamps that turns red when it is full and
   jobs wait, and how many are queued. A floor picker and a tag filter, kept in the page's hash so a link keeps them.
 - **The jobs,** in sections: on your list, running, queued, and over in the last day. Each row: its number, label,
   command and tags (a tag filters the page by it), who queued it and from which floor, where it stands (what a queued

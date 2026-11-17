@@ -132,7 +132,13 @@ button.act.danger:hover { border-color: color-mix(in oklab, var(--needs) 60%, tr
 
 /* ---- the chrome at the top: name, the meter, the filters ---- */
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-m) var(--sp-xl); padding: var(--sp-l) var(--sp-xl) var(--sp-m); }
-.brand { display: inline-flex; align-items: center; gap: var(--sp-s); color: var(--ink); text-decoration: none; font: 700 var(--fs-xl)/1 var(--display); letter-spacing: -.01em; }
+/* Back to the tower: a quiet key with the tower's back chevron, before the page's name. */
+.back { display: inline-flex; align-items: center; gap: 2px; min-height: 26px; padding: 0 var(--sp-m) 0 var(--sp-s); border: 1px solid var(--line); border-radius: var(--radius-s);
+  background: var(--panel); color: var(--ink); font: 500 var(--fs-s)/1 var(--ui); text-decoration: none; }
+.back:hover { border-color: var(--line-strong); }
+.back:focus-visible { outline: 3px solid color-mix(in oklab, var(--accent) 35%, transparent); outline-offset: 0; }
+.back .icon { width: 14px; height: 14px; }
+.brand { display: inline-flex; align-items: center; gap: var(--sp-s); margin: 0 0 0 calc(var(--sp-m) - var(--sp-xl)); color: var(--ink); font: 700 var(--fs-xl)/1 var(--display); letter-spacing: -.01em; }
 .brand::before { content: ''; width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
 /* `.meter` is design.css's own bar: the lanes' meter is `.c-meter`. */
 .c-meter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-s) var(--sp-l); }

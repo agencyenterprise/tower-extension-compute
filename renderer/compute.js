@@ -7,7 +7,7 @@
  */
 import { esc } from '/lib/words.js'
 import { loadTerminalFont, mountTermView, SHELL_SCROLLBACK, terminalFont } from '/lib/terminal.js'
-import { copyText } from '/lib/view.js'
+import { copyText, ICON } from '/lib/view.js'
 import { watchTips } from '/lib/chrome.js'
 
 /**
@@ -277,6 +277,8 @@ $('version').addEventListener('click', () => {
   setTimeout(() => (button.dataset.tip = `${said}. Press to copy it`), 1400)
 })
 
+// The way back to the tower, with the tower's own icon for it.
+$('back').insertAdjacentHTML('afterbegin', ICON.back)
 watchTips(document)
 tower.onBoardError((err) => ($('main').innerHTML = `<p class="note broken">${esc(err.message)}</p>`))
 tower.subscribe((board) => {
