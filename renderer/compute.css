@@ -1,95 +1,231 @@
 /*
- * The Compute page: the machine's queue, drawn from the board's `x.compute`. It follows the tower's palette
- * (/design.css), light and dark. A state is `t-<tone>` to stay clear of design.css's own class names.
+ * The Compute page in the Lobby's look (the Lobby renderer, tower-renderer-lobby's lobby.css): the top and the foot are
+ * the window's chrome, the jobs a card set into it, in the Lobby's face, greys and blue accent, with sentence-case heads,
+ * flat rows and quiet controls. It draws from the board's `x.compute`.
+ *
+ * Tokens first: each block mirrors a block of /design.css, same selector, so each scheme and contrast keeps its own
+ * values, and the page follows the tower's `data-scheme` as design.css does. Attention keeps its meaning: needs red,
+ * working amber, ready green, quiet grey. --enamel stays the core's: the screen's terminal takes its background from
+ * /lib/terminal.js, not from CSS. A state is `t-<tone>` to stay clear of design.css's own class names (`.needs` blinks).
  */
+:root {
+  --ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Atkinson Hyperlegible', sans-serif;
+  --display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, 'Overpass', sans-serif;
+  --radius: 8px;
+  --radius-s: 4px;
+  --radius-l: 12px;
+
+  color-scheme: light;
+  --wall: #e6e6eb;
+  --panel: #ffffff;
+  --panel-2: #f2f2f5;
+  --sunk: #ebebef;
+  --line: #e0e0e5;
+  --line-strong: #8a8a93;
+  --ink: #1d1d1f;
+  --muted: #48484f;
+  --faint: #5f5f67;
+  --deco: #b4b4bc;
+  --accent: #0a62d0;
+  --accent-wash: #e3edfb;
+  --needs: #e0261b;
+  --offered: #0a62d0;
+  --ready: #34c759;
+  --working: #ff9f0a;
+  --quiet: #a1a1a8;
+  --broken: #9b2a22;
+  --needs-text: #c4150b;
+  --ready-text: #1d7433;
+  --working-text: #995500;
+  --broken-text: #9b2a22;
+  --on-needs: #ffffff;
+  --on-offered: #ffffff;
+  --shadow-pop: 0 0 0 .5px #00000026, 0 24px 64px -16px #00000047;
+  --card-shadow: 0 0 0 .5px #00000014, 0 1px 3px #0000000d;
+  --hover: #f6f6f8;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-scheme='light']) {
+    color-scheme: dark;
+    --wall: #161618;
+    --panel: #222225;
+    --panel-2: #2c2c30;
+    --sunk: #1a1a1c;
+    --line: #36363b;
+    --line-strong: #7c7c84;
+    --ink: #f2f2f4;
+    --muted: #b8b8bf;
+    --faint: #9a9aa2;
+    --deco: #5c5c63;
+    --accent: #4c9bff;
+    --accent-wash: #1d3150;
+    --needs: #ff5a52;
+    --offered: #4c9bff;
+    --ready: #32d74b;
+    --working: #ffa926;
+    --quiet: #8e8e93;
+    --broken: #c4554c;
+    --needs-text: #ff7d76;
+    --ready-text: #4cd964;
+    --working-text: #ffb340;
+    --broken-text: #ff8a80;
+    --on-needs: #111113;
+    --on-offered: #111113;
+    --shadow-pop: 0 0 0 .5px #ffffff1f, 0 24px 64px -16px #000000d9;
+    --card-shadow: 0 0 0 .5px #ffffff0f, 0 1px 3px #00000066;
+    --hover: #29292d;
+  }
+}
+:root[data-scheme='dark'] {
+  color-scheme: dark;
+  --wall: #161618;
+  --panel: #222225;
+  --panel-2: #2c2c30;
+  --sunk: #1a1a1c;
+  --line: #36363b;
+  --line-strong: #7c7c84;
+  --ink: #f2f2f4;
+  --muted: #b8b8bf;
+  --faint: #9a9aa2;
+  --deco: #5c5c63;
+  --accent: #4c9bff;
+  --accent-wash: #1d3150;
+  --needs: #ff5a52;
+  --offered: #4c9bff;
+  --ready: #32d74b;
+  --working: #ffa926;
+  --quiet: #8e8e93;
+  --broken: #c4554c;
+  --needs-text: #ff7d76;
+  --ready-text: #4cd964;
+  --working-text: #ffb340;
+  --broken-text: #ff8a80;
+  --on-needs: #111113;
+  --on-offered: #111113;
+  --shadow-pop: 0 0 0 .5px #ffffff1f, 0 24px 64px -16px #000000d9;
+  --card-shadow: 0 0 0 .5px #ffffff0f, 0 1px 3px #00000066;
+  --hover: #29292d;
+}
+/* More contrast: darker secondary text and visible lines, as the Lobby does. */
+:root[data-contrast='more'] { --muted: #35353b; --faint: #45454c; --deco: #5f5f67; --line: #8a8a93; }
+@media (prefers-contrast: more) { :root { --muted: #35353b; --faint: #45454c; --deco: #5f5f67; --line: #8a8a93; } }
+@media (prefers-color-scheme: dark) { :root[data-contrast='more']:not([data-scheme='light']) { --muted: #d6d6dc; --faint: #c0c0c7; --deco: #9a9aa2; --line: #7c7c84; } }
+:root[data-contrast='more'][data-scheme='dark'] { --muted: #d6d6dc; --faint: #c0c0c7; --deco: #9a9aa2; --line: #7c7c84; }
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) { :root:not([data-scheme='light']) { --muted: #d6d6dc; --faint: #c0c0c7; --deco: #9a9aa2; --line: #7c7c84; } }
+@media (prefers-contrast: more) { :root[data-scheme='dark'] { --muted: #d6d6dc; --faint: #c0c0c7; --deco: #9a9aa2; --line: #7c7c84; } }
+
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
-body { margin: 0; display: flex; flex-direction: column; background: var(--wall); color: var(--ink); font: var(--fs-m)/1.45 var(--ui); }
+body { margin: 0; display: flex; flex-direction: column; background: var(--wall); color: var(--ink); font: var(--fs-m)/1.45 var(--ui); letter-spacing: -.003em; }
 a { color: var(--accent); }
 .note, .muted { color: var(--muted); }
 .note.broken { color: var(--broken-text); }
 .one-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-button.link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; }
+button { font-family: var(--ui); }
+:is(button, select, input):focus-visible { outline: 3px solid color-mix(in oklab, var(--accent) 35%, transparent); outline-offset: 0; }
 
-/* ---- the top: name, the meter, the filters ---- */
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-m) var(--sp-l); padding: var(--sp-m) var(--sp-l); background: var(--panel); border-bottom: 1px solid var(--line); }
-.brand { color: var(--ink); text-decoration: none; font: 900 var(--fs-xl)/1 var(--display); }
+/* Quiet controls, as the Lobby's: a white key with a hairline, its edge darkening when pointed at. */
+button.act, button.quiet { display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--sp-m); border: 1px solid var(--line); border-radius: var(--radius-s);
+  background: var(--panel); color: var(--ink); font: 500 var(--fs-s)/1 var(--ui); cursor: pointer; }
+:is(button.act, button.quiet):hover { border-color: var(--line-strong); }
+button.act.danger:hover { border-color: color-mix(in oklab, var(--needs) 60%, transparent); color: var(--needs-text); }
+
+/* ---- the chrome at the top: name, the meter, the filters ---- */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-m) var(--sp-xl); padding: var(--sp-l) var(--sp-xl) var(--sp-m); }
+.brand { display: inline-flex; align-items: center; gap: var(--sp-s); color: var(--ink); text-decoration: none; font: 700 var(--fs-xl)/1 var(--display); letter-spacing: -.01em; }
+.brand::before { content: ''; width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
 /* `.meter` is design.css's own bar: the lanes' meter is `.c-meter`. */
 .c-meter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-s) var(--sp-l); }
 .res { display: flex; align-items: center; gap: var(--sp-s); font-size: var(--fs-s); }
-.res .name { color: var(--muted); }
-.res .num { font: 700 var(--fs-s) var(--mono); }
-.bar { display: flex; gap: 2px; }
-.bar i { width: 10px; height: 8px; border-radius: 2px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--line); }
-.bar i.on { background: var(--accent); box-shadow: none; }
+.res .name { color: var(--faint); font-weight: 500; }
+.res .num { font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { display: flex; gap: 3px; }
+.bar i { width: 8px; height: 8px; border-radius: 50%; background: color-mix(in oklab, var(--ink) 12%, transparent); }
+.bar i.on { background: var(--accent); }
 .res.full .bar i.on { background: var(--needs); }
 .res.full .num { color: var(--needs-text); }
-.queued { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--sunk); color: var(--muted); font: 700 var(--fs-xs) var(--mono); }
-.queued.waiting { background: color-mix(in srgb, var(--needs) 18%, transparent); color: var(--needs-text); }
-.filters { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-s); font-size: var(--fs-s); color: var(--muted); }
-.filters select, .filters input { padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); color: var(--ink); font: var(--fs-s) var(--ui); }
+.queued { padding: 2px var(--sp-s); border-radius: var(--radius-pill); background: color-mix(in oklab, var(--ink) 7%, transparent); color: var(--faint);
+  font: 600 var(--fs-xs)/1.4 var(--ui); font-variant-numeric: tabular-nums; }
+.queued.waiting { background: color-mix(in oklab, var(--working) 18%, transparent); color: var(--working-text); }
+.filters { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-s); font-size: var(--fs-s); color: var(--faint); }
+.filters label { display: inline-flex; align-items: center; gap: var(--sp-s); }
+.filters select, .filters input { height: 26px; padding: 0 var(--sp-m); border: 0; border-radius: var(--radius-s); background: color-mix(in oklab, var(--ink) 6%, transparent);
+  color: var(--ink); font: 400 var(--fs-s) var(--ui); }
 .filters input { width: 16em; max-width: 100%; }
-.filters :is(select, input):focus { outline: none; border-color: var(--accent); }
+.filters input::placeholder { color: var(--faint); }
 
-/* ---- the jobs ---- */
-main { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-l); }
+/* ---- the jobs: a card set into the window, flat rows in sections ---- */
+main { flex: 1; min-height: 0; overflow-y: auto; margin: 0 var(--sp-m); padding: var(--sp-l) var(--sp-xl); background: var(--panel); border-radius: var(--radius-l); box-shadow: var(--card-shadow); }
 section { margin-bottom: var(--sp-xl); }
-section h2 { margin: 0 0 var(--sp-s); }
-.jobs { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); font-size: var(--fs-s); }
+section:last-child { margin-bottom: 0; }
+section h2 { display: flex; align-items: baseline; gap: var(--sp-s); margin: 0 0 var(--sp-xs); font: 600 var(--fs-m)/1.3 var(--display); letter-spacing: 0; text-transform: none; color: var(--ink); }
+section h2 .count { color: var(--faint); font: 500 var(--fs-s)/1 var(--ui); font-variant-numeric: tabular-nums; }
+.jobs { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--fs-s); }
 /* One set of column widths for every section, so the tables line up. */
-.jobs col.c-n { width: 4.5em; } .jobs col.c-who { width: 10em; } .jobs col.c-state { width: 30%; } .jobs col.c-time { width: 9em; }
-.jobs col.c-holds { width: 7em; } .jobs col.c-acts { width: 13em; }
-.jobs th { text-align: left; padding: 6px 10px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.jobs td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.jobs col.c-n { width: 3.5em; } .jobs col.c-who { width: 10em; } .jobs col.c-state { width: 30%; } .jobs col.c-time { width: 8em; }
+.jobs col.c-holds { width: 6.5em; } .jobs col.c-acts { width: 13em; }
+.jobs th { text-align: left; padding: var(--sp-s) var(--sp-m); color: var(--faint); font: 500 var(--fs-xs)/1.2 var(--ui); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.jobs td { padding: var(--sp-m); border-bottom: 1px solid var(--line); vertical-align: top; }
+.jobs tbody tr:hover td { background: var(--hover); }
 .jobs tr:last-child td { border-bottom: 0; }
-.jobs .n { font: 700 var(--fs-s) var(--mono); color: var(--muted); white-space: nowrap; }
+.jobs .n { color: var(--faint); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jobs .label { font-weight: 600; max-width: 28em; }
-.jobs .cmd { display: block; color: var(--faint); font: var(--fs-xs) var(--mono); max-width: 36em; }
-.jobs .who { white-space: nowrap; }
-.jobs .who small { display: block; color: var(--faint); }
-.jobs .time { white-space: nowrap; font-family: var(--mono); }
+.jobs .cmd { display: block; margin-top: 1px; color: var(--faint); font: var(--fs-xs) var(--mono); max-width: 36em; }
+.jobs .who { white-space: nowrap; font-weight: 500; }
+.jobs .who small { display: block; color: var(--faint); font-weight: 400; }
+.jobs .time { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.jobs .needs-col { color: var(--muted); }
 .jobs .acts { white-space: nowrap; text-align: right; }
 .jobs .acts button + button { margin-left: var(--sp-s); }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.chip-t { padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font: var(--fs-xs) var(--mono); line-height: 1.7; background: none; cursor: pointer; }
-.chip-t:hover { color: var(--ink); border-color: var(--accent); }
-.state { font-weight: 600; }
-.t-ready { color: var(--ready-text); }
-.t-needs { color: var(--needs-text); }
-.t-broken { color: var(--broken-text); }
-.t-quiet { color: var(--muted); }
-.why { display: block; color: var(--muted); font-weight: 400; }
-.listed { display: block; color: var(--needs-text); font-weight: 400; }
-.empty { padding: var(--sp-m); color: var(--muted); }
-button.act { padding: 3px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); color: var(--ink); font: var(--fs-s) var(--ui); cursor: pointer; }
-button.act:hover { border-color: var(--accent); }
-button.act.danger:hover { border-color: var(--broken); color: var(--broken-text); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--sp-xs); }
+.chip-t { padding: 0 var(--sp-s); border: 0; border-radius: var(--radius-pill); background: color-mix(in oklab, var(--ink) 6%, transparent); color: var(--muted);
+  font: 500 var(--fs-xs)/1.8 var(--ui); cursor: pointer; }
+.chip-t:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 10%, transparent); }
+/* Where it stands: a lamp in its attention, its word in that tone's text. */
+.state { display: inline-flex; align-items: center; gap: var(--sp-s); font-weight: 600; color: var(--tone-text); }
+.state::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
+.t-ready { --tone: var(--ready); --tone-text: var(--ready-text); }
+.t-working { --tone: var(--working); --tone-text: var(--working-text); }
+.t-needs { --tone: var(--needs); --tone-text: var(--needs-text); }
+.t-broken { --tone: var(--broken); --tone-text: var(--broken-text); }
+.t-quiet { --tone: var(--quiet); --tone-text: var(--muted); }
+.why, .listed { display: block; padding-left: calc(8px + var(--sp-s)); font-weight: 400; }
+.why { color: var(--faint); }
+.listed { color: var(--needs-text); }
+/* A job on your list is washed in needs, as a row waiting on you in the Lobby. */
+.jobs tr:has(.listed) td { background: color-mix(in oklab, var(--needs) 5%, var(--panel)); }
+.jobs tr:has(.listed):hover td { background: color-mix(in oklab, var(--needs) 9%, var(--panel)); }
+.empty { padding: var(--sp-s) 0 var(--sp-m); color: var(--faint); font-size: var(--fs-s); }
 
-/* ---- a job's screen, read only, at the foot of the page ---- */
-.screen { flex: 0 0 40vh; display: flex; flex-direction: column; border-top: 1px solid var(--line-strong); background: var(--panel); }
+/* ---- a job's screen, read only: a second card under the jobs ---- */
+.screen { flex: 0 0 40vh; display: flex; flex-direction: column; margin: var(--sp-m) var(--sp-m) 0; overflow: hidden; background: var(--panel); border-radius: var(--radius-l);
+  box-shadow: var(--card-shadow); }
 .screen[hidden] { display: none; }
-.screen-head { display: flex; align-items: center; gap: var(--sp-m); padding: var(--sp-s) var(--sp-l); border-bottom: 1px solid var(--line); font-size: var(--fs-s); }
+.screen-head { display: flex; align-items: center; gap: var(--sp-m); padding: var(--sp-s) var(--sp-s) var(--sp-s) var(--sp-xl); border-bottom: 1px solid var(--line); font-size: var(--fs-s); }
 .screen-head span { flex: 1; font-weight: 600; }
-.screen-term { flex: 1; min-height: 0; padding: var(--sp-s); overflow: hidden; }
+.screen-term { flex: 1; min-height: 0; margin: var(--sp-s); border-radius: var(--radius); overflow: hidden; }
 
-/* ---- which version runs, at the page's foot ---- */
-.foot { flex: none; display: flex; justify-content: flex-end; padding: 2px var(--sp-l); border-top: 1px solid var(--line); background: var(--panel); }
-.version { padding: 0 var(--sp-2xs); border: 0; border-radius: 4px; background: none; color: var(--faint); font: var(--fs-xs) var(--ui); cursor: pointer; }
+/* ---- which version runs, in the chrome at the page's foot ---- */
+.foot { order: 1; flex: none; display: flex; justify-content: flex-end; padding: var(--sp-2xs) var(--sp-l); }
+.version { padding: 2px var(--sp-s); border: 0; border-radius: var(--radius-s); background: none; color: var(--faint); font: 500 var(--fs-xs) var(--ui); cursor: pointer; }
 .version:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 7%, transparent); }
 
-#toasts { position: fixed; right: var(--sp-l); bottom: var(--sp-l); display: grid; gap: var(--sp-s); }
-.toast { padding: var(--sp-s) var(--sp-m); border-radius: var(--radius); background: var(--ink); color: var(--panel); font-size: var(--fs-s); max-width: 28em; }
+#toasts { position: fixed; right: var(--sp-l); bottom: var(--sp-xl); display: grid; gap: var(--sp-s); }
+.toast { padding: var(--sp-s) var(--sp-m); border-radius: var(--radius); background: var(--panel); color: var(--ink); box-shadow: var(--shadow-pop); font-size: var(--fs-s); max-width: 28em; }
 
 /* Narrow: each job is a block of its cells, stacked, with no header row. */
 @media (max-width: 720px) {
-  main { padding: var(--sp-m); }
+  .top { padding: var(--sp-m) var(--sp-l) var(--sp-s); }
+  main { margin: 0 var(--sp-s); padding: var(--sp-m) var(--sp-l); }
+  .screen { margin: var(--sp-s) var(--sp-s) 0; }
   .filters { margin-left: 0; }
   .jobs, .jobs tbody, .jobs tr, .jobs td { display: block; width: auto; }
   .jobs thead, .jobs colgroup, .jobs .needs-col, .jobs .cmd { display: none; }
-  .jobs tr { position: relative; padding: var(--sp-s) var(--sp-m) var(--sp-s) 3.5em; border-bottom: 1px solid var(--line); }
+  .jobs tr { position: relative; padding: var(--sp-s) 0 var(--sp-s) 2.75em; border-bottom: 1px solid var(--line); }
   .jobs tr:last-child { border-bottom: 0; }
-  .jobs td { padding: 2px 0; border: 0; }
-  .jobs td.n { position: absolute; left: var(--sp-m); top: var(--sp-s); }
+  .jobs td, .jobs tbody tr:hover td, .jobs tr:has(.listed) td { padding: 2px 0; border: 0; background: none; }
+  .jobs tr:has(.listed) { background: color-mix(in oklab, var(--needs) 5%, var(--panel)); }
+  .jobs td.n { position: absolute; left: var(--sp-xs); top: var(--sp-s); }
   .jobs .label { max-width: none; }
   .jobs .acts { text-align: left; padding-top: var(--sp-s); }
 }

@@ -80,14 +80,17 @@ const waitsFor = (/** @type {Job} */ j, /** @type {Compute} */ c) => {
   return 'its turn: it starts within seconds'
 }
 
-/** A job's state as a word in a tone, and a line under it. */
+/**
+ * A job's state as a word in a tone, and a line under it. The tones are the Lobby's: a running job is working (amber),
+ * one past its hours needs a look (red), one that exited 0 is ready (green), a failed one broken, the rest quiet.
+ */
 const stateOf = (/** @type {Job} */ j, /** @type {Compute} */ c) => {
   if (j.status === 'queued') return { word: 'queued', tone: 'quiet', why: `waits for ${waitsFor(j, c)}` }
-  if (j.status === 'running') return { word: j.overdue ? 'running long' : 'running', tone: j.overdue ? 'needs' : 'ready', why: j.overdue ? `past the ${hoursWords(j.hours ?? 0)} it was given` : '' }
+  if (j.status === 'running') return { word: j.overdue ? 'running long' : 'running', tone: j.overdue ? 'needs' : 'working', why: j.overdue ? `past the ${hoursWords(j.hours ?? 0)} it was given` : '' }
   if (j.status === 'withdrawn') return { word: 'withdrawn', tone: 'quiet', why: '' }
   const ok = /^exit 0\b/.test(j.outcome ?? '')
   const told = !j.told ? 'telling its requester' : j.told.failed !== undefined ? '' : j.told.resumed ? `${j.told.to} was resumed to be told` : j.told.to ? `${j.told.to} was told` : ''
-  return { word: j.outcome ?? 'over', tone: ok ? 'quiet' : 'broken', why: told }
+  return { word: j.outcome ?? 'over', tone: ok ? 'ready' : 'broken', why: told }
 }
 
 /** The time column: how long it has waited, run, or took, and when. */
@@ -136,7 +139,7 @@ const rowHtml = (/** @type {Job} */ j, /** @type {Compute} */ c) => {
 
 const sectionHtml = (/** @type {string} */ title, /** @type {Job[]} */ jobs, /** @type {Compute} */ c, /** @type {string} */ none) => `
   <section>
-    <h2 class="eyebrow">${esc(title)} · ${jobs.length}</h2>
+    <h2>${esc(title)}<span class="count">${jobs.length}</span></h2>
     ${
       jobs.length
         ? `<table class="jobs"><colgroup><col class="c-n"><col><col class="c-who"><col class="c-state"><col class="c-time"><col class="c-holds needs-col"><col class="c-acts"></colgroup><thead><tr><th>#</th><th>Job</th><th>Who</th><th>Where it stands</th><th>Time</th><th class="needs-col">Holds</th><th></th></tr></thead><tbody>${jobs.map((j) => rowHtml(j, c)).join('')}</tbody></table>`

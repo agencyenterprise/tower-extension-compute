@@ -8,6 +8,11 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+### Changed
+- The page wears the Lobby look: the jobs in a card set into the window, the system face, Lobby's greys and blue
+  accent in light and dark, sentence-case section heads, flat rows and quiet buttons, and the job's screen in a card
+  of its own. A running job's lamp is amber and one that exited 0 green, as Lobby's working and done.
+
 ## [1.1] - 2026-11-17
 
 ### Added

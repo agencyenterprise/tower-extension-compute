@@ -69,15 +69,19 @@ The line:
 
 ### The Compute page
 
-A renderer at `/r/compute/`, drawn from the board's `x.compute` (compute's board part) alone:
+A renderer at `/r/compute/`, drawn from the board's `x.compute` (compute's board part) alone. It wears the look of
+[Lobby](https://github.com/fliptaboada/tower-renderer-lobby), the tower's macOS-style page: the jobs in a card set into
+the window, the system face, greys and a blue accent, light or dark as the tower's scheme is. Colour is kept for where a
+job stands: a job past its hours or on your list in red, a running one amber, one that exited 0 green, a queued or
+withdrawn one grey.
 
-- **The top:** each resource's units in use out of the machine's, as a row of lamps that turns orange when it is full and
+- **The top:** each resource's units in use out of the machine's, as a row of lamps that turns red when it is full and
   jobs wait, and how many are queued. A floor picker and a tag filter, kept in the page's hash so a link keeps them.
 - **The jobs,** in sections: on your list, running, queued, and over in the last day. Each row: its number, label,
   command and tags (a tag filters the page by it), who queued it and from which floor, where it stands (what a queued
   job waits for, a running one past its hours, how an over one ended and how its requester was told), how long it has
-  waited or run or how long ago it ended, and what it holds.
-- **Its buttons:** **Screen** opens the job's live screen at the page's foot, read only, as the jobs daemon keeps it;
+  waited or run or how long ago it ended, and what it holds. Under 720 px wide, each job's cells stack.
+- **Its buttons:** **Screen** opens the job's live screen in a card under the jobs, read only, as the jobs daemon keeps it;
   **Cancel** (**Withdraw** while queued) and **Seen** call compute's own verbs, so a worker can do the same from the
   `tower` command.
 - **Its foot:** the version of Compute the tower loaded (see [Which version you run](#which-version-you-run)).
