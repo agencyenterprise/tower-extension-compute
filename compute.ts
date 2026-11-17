@@ -36,8 +36,14 @@ export type StartedFact = { n: number; job: string }
 export type RefusedFact = { n: number; reason: string }
 /** A queued job taken out of the queue before it started. */
 export type WithdrawnFact = { n: number; by: string; callsign?: string }
-/** A job is over and its requester was told: what it was told, whom, why it couldn't be, and how its cleanup went. */
-export type ToldFact = { n: number; outcome: string; to?: string; failed?: string; cleanup?: { exit: number | null; signal?: string } }
+/**
+ * A job is over and compute is done telling its requester: what it said (`outcome`), to whom, the session it resumed
+ * the requester in when that worker wasn't running (`resumed`), and how the job's cleanup went. `failed`: the requester
+ * couldn't be told, and why: the job is on the user's list until they mark it seen.
+ */
+export type ToldFact = { n: number; outcome: string; to?: string; resumed?: string; failed?: string; cleanup?: { exit: number | null; signal?: string } }
+/** The user (or a worker) saw a job the list held, and took it off. */
+export type SeenFact = { n: number; by: string }
 
 export type QueueFact =
   | [number, 'j', QueuedFact]
@@ -45,6 +51,7 @@ export type QueueFact =
   | [number, 'f', RefusedFact]
   | [number, 'q', WithdrawnFact]
   | [number, 'y', ToldFact]
+  | [number, 's', SeenFact]
 
 /** The stream's state: every fact, in order. What they mean is `entriesOf`'s. */
 export type QueueFacts = { facts: QueueFact[] }
@@ -58,6 +65,7 @@ export type Entry = QueuedFact & {
   refused?: string
   withdrawnAt?: number
   told?: ToldFact & { at: number }
+  seenAt?: number
 }
 
 /** Every job the facts name, oldest first. */
@@ -69,7 +77,8 @@ export const entriesOf = (facts: QueueFact[]): Entry[] => {
     else if (code === 'o') Object.assign(at(fact.n), { startedAt: time, job: fact.job })
     else if (code === 'f') Object.assign(at(fact.n), { refused: fact.reason })
     else if (code === 'q') Object.assign(at(fact.n), { withdrawnAt: time })
-    else Object.assign(at(fact.n), { told: { ...fact, at: time } })
+    else if (code === 'y') Object.assign(at(fact.n), { told: { ...fact, at: time } })
+    else Object.assign(at(fact.n), { seenAt: time })
   }
   return entries
 }
@@ -210,15 +219,72 @@ export const overdue = (v: View, now: number): boolean =>
 /** What compute types at a requester's prompt opens with, so a worker tells it from the user's words. */
 export const TELL_MARK = '[compute]'
 
-/** What a requester is told once its job is over. */
+const tagWords = (tags: Record<string, string>) =>
+  Object.entries(tags)
+    .map(([k, t]) => `${k}=${t}`)
+    .join(' ')
+
+/** What a requester is told at its prompt once its job is over. */
 export const tellText = (v: View): string =>
   [
     `${TELL_MARK} Your job #${v.n} (${v.label}) is over: ${v.outcome}.`,
+    Object.keys(v.tags).length ? `Its tags: ${tagWords(v.tags)}.` : '',
     v.job ? `Its screen: \`tower job list\` names it (${v.job}), and the tower serves it at /job/${v.job}/screen while it keeps it.` : '',
     v.outcome && !succeeded(v.outcome) ? 'Read what went wrong before you run it again.' : '',
   ]
     .filter(Boolean)
     .join(' ')
+
+/**
+ * The first prompt of a requester compute resumes because it wasn't running when its job ended: why it is back, then
+ * what it would have been told. What it does with that is its own work's to say: a closed mission, say, is done.
+ */
+export const resumeText = (v: View): string =>
+  `${TELL_MARK} You were resumed because a job you queued is over and you weren't running to be told. ${tellText(v).slice(TELL_MARK.length + 1)} Check whether the work it was for still goes on before you act on it.`
+
+/** The jobs on the user's list: over, their requester not told (`told.failed`), and not marked seen. */
+export const listed = (views: View[]): View[] => views.filter((v) => v.told?.failed !== undefined && v.seenAt === undefined)
+
+/** A listed job's line on the user's list. */
+export const listTitle = (v: View): string => {
+  const why = v.told!.failed!
+  return `Job #${v.n} (${v.label})${v.callsign ? ` by ${v.callsign}` : ''} is over: ${v.outcome}. Not told: ${why}.`
+}
+
+/** The jobs worth showing at `now`: queued, running, over and untold or listed, and the rest within the last day. */
+export const recent = (views: View[], now: number): View[] =>
+  views.filter((v) => {
+    if (v.status === 'queued' || v.status === 'running' || !v.told) return v.status !== 'withdrawn' || (v.withdrawnAt ?? 0) > now - DAY_MS
+    if (v.told.failed !== undefined && v.seenAt === undefined) return true
+    return v.told.at > now - DAY_MS
+  })
+
+/** A job as plain data, as the read and the board part give it. */
+export const plainJob = (v: View, now: number) => ({
+  n: v.n,
+  label: v.label,
+  argv: v.argv,
+  cwd: v.cwd,
+  project: v.project,
+  by: v.by,
+  ...(v.callsign && { callsign: v.callsign }),
+  needs: v.needs,
+  tags: v.tags,
+  caps: v.caps,
+  ...(v.hours !== undefined && { hours: v.hours }),
+  ...(v.cleanup && { cleanup: v.cleanup }),
+  status: v.status,
+  ...(v.outcome && { outcome: v.outcome }),
+  queuedAt: v.queuedAt,
+  ...(v.startedAt !== undefined && { startedAt: v.startedAt }),
+  ...(v.endedAt !== undefined && { endedAt: v.endedAt }),
+  ...(v.withdrawnAt !== undefined && { withdrawnAt: v.withdrawnAt }),
+  ...(v.job && { job: v.job }),
+  ...(v.told && { told: { at: v.told.at, ...(v.told.to && { to: v.told.to }), ...(v.told.resumed && { resumed: v.told.resumed }), ...(v.told.failed !== undefined && { failed: v.told.failed }) } }),
+  ...(v.seenAt !== undefined && { seenAt: v.seenAt }),
+  ...(overdue(v, now) && { overdue: true }),
+})
+export type PlainJob = ReturnType<typeof plainJob>
 
 /** One job in a line. */
 export const jobLine = (v: View, views: View[], resources: Record<string, number>, now: number): string => {
@@ -237,7 +303,14 @@ export const jobLine = (v: View, views: View[], resources: Record<string, number
     }
     if (v.status === 'running') return `running ${durationWords(now - (v.startedAt ?? now))}${overdue(v, now) ? `, past its ${v.hours} h` : ''}${v.job ? ` (${v.job})` : ''}`
     if (v.status === 'withdrawn') return 'withdrawn'
-    return `over: ${v.outcome}${v.told ? '' : ', telling its requester'}`
+    const told = !v.told
+      ? ', telling its requester'
+      : v.told.failed !== undefined
+        ? `, not told (${v.told.failed})${v.seenAt === undefined ? ', on the list' : ''}`
+        : v.told.resumed
+          ? `, told by resuming ${v.told.to}`
+          : ''
+    return `over: ${v.outcome}${told}`
   })()
   return `#${v.n} ${state} · ${v.label} · ${needs || 'needs nothing'} · ${who}${tags ? ` · ${tags}` : ''}`
 }

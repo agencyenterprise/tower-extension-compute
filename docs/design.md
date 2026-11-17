@@ -21,7 +21,8 @@ each crew ran them as background processes of a worker's own session. That had f
 | `labq`, a job queue to the owner's laptop | Heavy runs need a bigger machine than the agents' one, and must outlive the agent | Kept as the queue, on the same machine: the tower's jobs daemon runs each job |
 | `mps-lock`, a FIFO ticket lock | One heavy job at a time, fairly: plain `lockf` let chained steps starve the queue | Kept as named resources and an oldest-first scheduler: no lock files, no polling for a lock |
 | Heartbeats, stale-claim requeues, adoption | The queue was a remote API and the worker another machine | Left out: the jobs log is local and has one writer, and a lost job reads as lost on the board |
-| Telegram notices | The owner learns a job started and ended | Kept as a line at the requester's prompt |
+| Telegram notices | The owner learns a job started and ended | Kept as a line at the requester's prompt, the requester resumed when it isn't running, and the user's list when it can't be found |
+| Menu bar app, queue panel | The owner sees the queue and what runs, and stops a job | Kept as the Compute page: the queue, a lane meter, a job's live screen, Cancel and Seen |
 | Memory guard, disk guard, janitor | A small machine that agents ran out of memory and disk | Planned: start floors and stop floors (below) |
 | Load meter in the menu bar | The owner sees what the lab does with the machine | Planned: a load read the tower's pages draw |
 | Off / on / until 08:00, pause for a game | The owner's laptop, lent on the owner's terms | Planned: holds, of the machine or of one tag |
@@ -55,7 +56,10 @@ In order, each small enough to build alone:
    fact saying why.
 3. **Holds and bumps.** `hold [--tag k=v] [--until <time>]` and `release` stop starts for the machine or one group,
    and never stop running jobs. `bump <n>` moves a queued job to the front.
-4. **A page section** on the tower page: the queue, the resources and the controls above, through the same verbs.
+4. **A place in the tower page.** The Compute page (`/r/compute/`) holds the queue, the meter and the controls for now,
+   a renderer of its own while the rest of the tower's integration is thought through: a meter in the tower page's
+   header, the queue as a view in its panes. Everything it draws is in `board.x.compute` and everything it does is a
+   compute verb, so that move is a second client, not a rewrite.
 
 ## Known limits
 

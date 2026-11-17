@@ -48,13 +48,44 @@ lanes 3 of 4 in use · 1 queued
   within the last day, with where it stands and, for a queued one, what it waits for.
 - `cancel <n>`: a queued job is withdrawn; a running one is cancelled in the jobs daemon (SIGTERM to its process group,
   SIGKILL 5 s later), then its cleanup runs and its requester is told.
+- `seen <n>`: takes a job off your list (below).
 
-When a job is over, its requester gets one line at its prompt, queued while it works:
+When a job is over, its cleanup runs, then its requester is told, in this order:
+
+1. **Running:** one line at its prompt, queued while it works.
+2. **Running but busy** with a question to you or a Claude screen, which refuses typed text: tried again every few
+   seconds until it takes the line.
+3. **Not running**, stopped, killed, lost, sent home or let go: **resumed** in its latest conversation, with the line as
+   its first prompt and a word on why it is back. A worker that was let go is found in its floor's archive.
+4. **Not found at all**, or its resume refused (its worktree can't be restored, say), or a job queued from outside any
+   worker: the job goes on **your list** on the tower page, at its floor, with a **Seen** button.
+
+The line:
 
 ```text
 [compute] Your job #7 (counted run) is over: exit 0 after 2 h 10 min. Its screen: `tower job list` names it
 (job-7f6be1c7), and the tower serves it at /job/job-7f6be1c7/screen while it keeps it.
 ```
+
+### The Compute page
+
+A renderer at `/r/compute/`, drawn from the board's `x.compute` (compute's board part) alone:
+
+- **The top:** each resource's units in use out of the machine's, as a row of lamps that turns orange when it is full and
+  jobs wait, and how many are queued. A floor picker and a tag filter, kept in the page's hash so a link keeps them.
+- **The jobs,** in sections: on your list, running, queued, and over in the last day. Each row: its number, label,
+  command and tags (a tag filters the page by it), who queued it and from which floor, where it stands (what a queued
+  job waits for, a running one past its hours, how an over one ended and how its requester was told), how long it has
+  waited or run or how long ago it ended, and what it holds.
+- **Its buttons:** **Screen** opens the job's live screen at the page's foot, read only, as the jobs daemon keeps it;
+  **Cancel** (**Withdraw** while queued) and **Seen** call compute's own verbs, so a worker can do the same from the
+  `tower` command.
+
+| Dark | Light |
+| --- | --- |
+| ![The Compute page, dark](docs/shots/page-dark.png) | ![The Compute page, light](docs/shots/page-light.png) |
+
+![A job's live screen at the page's foot](docs/shots/screen.png)
 
 ### For other extensions
 
@@ -78,7 +109,8 @@ It needs the tower 2.0 or later and Node 24, and nothing else: it has no runtime
 git clone git@github.com:agencyenterprise/tower-extension-compute.git
 ```
 
-Then name its folder in the tower's config (`~/.tower/config.json`), with the machine's resources:
+Then name its folder in the tower's config (`~/.tower/config.json`), with the machine's resources. An extension can't
+declare a renderer, so the config names the page's folder too:
 
 ```json
 {
@@ -87,9 +119,12 @@ Then name its folder in the tower's config (`~/.tower/config.json`), with the ma
       "path": "/Users/you/code/tower-extension-compute",
       "settings": { "resources": { "lanes": 6, "gpu": 1 }, "defaultNeeds": { "lanes": 1 } }
     }
-  }
+  },
+  "renderers": { "compute": { "root": "/Users/you/code/tower-extension-compute/renderer" } }
 }
 ```
+
+A floor's shelf can frame the page beside its sessions: `{ "label": "Compute", "renderer": "compute" }`.
 
 `tower config check` checks the edit, and `tower extensions` lists it once the tower has read it.
 
@@ -109,8 +144,13 @@ Then name its folder in the tower's config (`~/.tower/config.json`), with the ma
   their cleanup, then starts the oldest queued jobs that fit: a job whose needs or cap don't fit is passed by younger
   ones that do. While the jobs daemon doesn't answer it does nothing, so a lost job is never taken for over while the
   daemon is down.
-- **Telling** types one line at the requester's prompt (`tower/submit`, queued while it works). When it can't, the
-  requester not running or gone from the board, the `y` fact says why, and `jobs` shows the outcome.
+- **Telling** types one line at the requester's prompt (`tower/submit`, queued while it works); a prompt busy with a
+  question or a screen (`not_at_prompt`) is tried again next round. A requester that isn't running is resumed through
+  the `resume` its card offers (on the board, else in `tower/archive/<project>`), with the line as its first prompt. The
+  `y` fact records whom it told and the session it resumed, or why it couldn't (`failed`): the board part then puts the
+  job on the user's list at its floor until `seen` (an `s` fact).
+- **The board part** (`board.x.compute`) holds the resources, the units in use, the queue's length and the jobs worth
+  showing, each as the `jobs` read gives it: a page draws from it with no read of its own.
 - **Jobs outlive the tower, not the jobs daemon.** A job runs in the jobs daemon, outside the tower: it outlives a
   restart of the tower or of compute, which picks up where its facts left off. Stopping the jobs daemon ends every
   job, so a long run should be able to resume.
@@ -121,14 +161,14 @@ Then name its folder in the tower's config (`~/.tower/config.json`), with the ma
   around it: the stream, the board, the jobs daemon, the prompts.
 
 Not yet here, in the order [docs/design.md](docs/design.md) gives: spend pools for paid API keys, disk and memory
-floors, a load read, holds and bumps, and a page section on the tower.
+floors, a load read, holds and bumps, and a place in the tower page itself.
 
 ## Working on it
 
 ```sh
 npm install
 npm run types       # tower types .: the library's declarations for this tower, in .tower/ (git-ignored)
-npm run typecheck
+npm run typecheck   # the server, and the page's JavaScript through JSDoc
 npm test            # node --test over compute.ts
 npm run check       # tower extensions check .
 ```

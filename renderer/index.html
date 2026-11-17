@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compute</title>
+<link rel="stylesheet" href="/design.css">
+<link rel="stylesheet" href="/xterm.css">
+<link rel="stylesheet" href="compute.css">
+<script src="/tower.js"></script>
+<script src="/xterm.js"></script>
+<script src="/addon-fit.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/" data-tip="Back to the tower">Compute</a>
+  <div id="meter" class="c-meter" aria-live="polite"></div>
+  <div class="filters" role="search">
+    <label>Floor <select id="floor" aria-label="Floor"></select></label>
+    <input id="tag" type="search" placeholder="Tag, such as mission=boss-05" autocomplete="off" spellcheck="false" aria-label="Show the jobs carrying this tag">
+  </div>
+</header>
+<main id="main"><p class="note">Reading the board…</p></main>
+<aside id="screen" class="screen" hidden>
+  <div class="screen-head">
+    <span id="screen-title" class="one-line"></span>
+    <button type="button" id="screen-close" class="link">Close</button>
+  </div>
+  <div id="screen-term" class="screen-term"></div>
+</aside>
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="compute.js"></script>
+</body>
+</html>

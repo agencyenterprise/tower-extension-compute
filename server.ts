@@ -1,24 +1,28 @@
 /**
  * Compute: a queue for long or heavy commands on the machine the tower runs on. `run` records a job in the `queue`
  * stream; every few seconds the scheduler starts the oldest queued jobs that fit the machine's free resources in the
- * jobs daemon, and tells each requester at its prompt once its job is over, after running the job's cleanup.
+ * jobs daemon, and once a job is over runs its cleanup and tells its requester: at its prompt when it runs, by resuming
+ * it when it doesn't, and on the user's list only when it can't be found or resumed.
  *
  * What it decides is pure and lives in `compute.ts`. Here: reading the stream and the board, the jobs daemon, the
- * prompts, and the verbs and the read.
+ * prompts and resumes, the verbs, the read and the board's part.
  */
 import { statSync } from 'node:fs'
 import path from 'node:path'
-import type { Board, Card } from '/lib/board.js'
-import { apiError, isApiError, type CallCtx, type Reduce, type Start, type StartCtx } from '/lib/extension.js'
+import { callOf, type Board, type Card } from '/lib/board.js'
+import { apiError, isApiError, type Ask, type CallCtx, type FoldCtx, type Part, type Reduce, type Start, type StartCtx } from '/lib/extension.js'
 import {
-  DAY_MS,
   count,
   entriesOf,
   jobLine,
+  listed,
+  listTitle,
   nextStarts,
-  overdue,
   pairsOf,
+  plainJob,
+  recent,
   resourcesLine,
+  resumeText,
   tellText,
   unrunnable,
   untold,
@@ -27,6 +31,7 @@ import {
   type QueueFact,
   type QueueFacts,
   type QueuedFact,
+  type ToldFact,
   type View,
 } from './compute.ts'
 
@@ -48,6 +53,9 @@ const cardOfSession = (cards: Card[], session: string): Card | undefined =>
   cards.filter((c) => c.lineage.some((l) => l.id === session)).sort((a, b) => b.enteredAt - a.enteredAt)[0]
 
 const boardCards = (board: Board): Card[] => board.floors.flatMap((f) => f.cards)
+
+/** What telling a requester came to: told (perhaps by resuming it), not told and why, or to try again next round. */
+type Telling = Pick<ToldFact, 'to' | 'resumed' | 'failed'> | 'retry'
 
 const start: Start = (ctx: StartCtx) => {
   const settings = () => ctx.settings as Settings
@@ -72,17 +80,45 @@ const start: Start = (ctx: StartCtx) => {
     }
   }
 
-  /** Tells a requester its job is over, at its prompt; why it couldn't, if it couldn't. */
-  const tell = async (v: View, board: Board): Promise<{ to?: string; failed?: string }> => {
-    if (v.by === 'user') return {}
-    const card = cardOfSession(boardCards(board), v.by)
-    if (!card) return { failed: `${v.callsign ?? v.by} is no longer on the board` }
-    if (!card.live) return { to: card.callsign, failed: `${card.callsign} isn't running` }
-    const reply = await ctx.call('tower/submit', { id: card.id, text: tellText(v) })
-    return { to: card.callsign, ...(isApiError(reply) && { failed: reply.message }) }
+  /** The worker a session runs as now: on the board, else in its floor's archive (sent home, let go). */
+  const requesterCard = async (v: View, board: Board): Promise<Card | undefined> => {
+    const onBoard = cardOfSession(boardCards(board), v.by)
+    if (onBoard) return onBoard
+    const archived = await ctx.read('tower/archive/<project>', { project: v.project })
+    return isApiError(archived) ? undefined : cardOfSession(archived as Card[], v.by)
   }
 
-  /** One round: tell the requesters of jobs that are over, then start what fits. */
+  /**
+   * Tells a requester its job is over. A running worker gets a line at its prompt; one busy with a question or a
+   * screen is tried again next round. One that isn't running, on the board or sent home, is resumed with the line as
+   * its first prompt. Only a job queued from outside a worker, a worker that can't be found, or a resume the tower
+   * refuses is left unsaid, for the user's list.
+   */
+  const tell = async (v: View, board: Board): Promise<Telling> => {
+    if (v.by === 'user') return { failed: 'it was queued from outside a worker' }
+    const card = await requesterCard(v, board)
+    const who = card?.callsign ?? v.callsign ?? v.by
+    if (!card) return { failed: `${who} can't be found on ${v.project}` }
+    if (card.live) {
+      const reply = await ctx.call('tower/submit', { id: card.id, text: tellText(v) })
+      if (!isApiError(reply)) return { to: who }
+      return reply.code === 'not_at_prompt' ? 'retry' : { to: who, failed: `${who} refused the line: ${reply.message}` }
+    }
+    const offered = callOf(card, 'resume')
+    if (!offered) return { to: who, failed: `${who} isn't running and can't be resumed` }
+    const [verb, input] = offered
+    const reply = await ctx.call(`tower/${verb}`, { ...input, prompt: resumeText(v) })
+    if (isApiError(reply)) return { to: who, failed: `resuming ${who} was refused: ${reply.message}` }
+    return { to: who, resumed: (reply as { id: string }).id }
+  }
+
+  /**
+   * Cleanups run as each job is first found over, before its requester is told, which may take rounds while it is
+   * busy. Held here until the `y` fact records them: after a restart one runs again, so a cleanup must be safe to repeat.
+   */
+  const cleaned = new Map<number, { exit: number | null; signal?: string } | undefined>()
+
+  /** One round: clean up after and tell the requesters of jobs that are over, then start what fits. */
   let busy = false
   const tick = async () => {
     if (busy) return
@@ -91,9 +127,12 @@ const start: Start = (ctx: StartCtx) => {
       const board = ctx.board()
       if (!board.jobsUp) return
       for (const v of untold(viewsNow(board))) {
-        const ran = await cleanup(v)
+        if (!cleaned.has(v.n)) cleaned.set(v.n, await cleanup(v))
         const told = await tell(v, board)
+        if (told === 'retry') continue
+        const ran = cleaned.get(v.n)
         await append('y', { n: v.n, outcome: v.outcome!, ...told, ...(ran && { cleanup: ran }) })
+        cleaned.delete(v.n)
       }
       const views = viewsNow()
       for (const n of nextStarts(views, settings().resources)) {
@@ -115,6 +154,12 @@ const start: Start = (ctx: StartCtx) => {
   const callerCard = (call: CallCtx): Card | undefined =>
     call.caller.t === 'worker' && call.caller.id !== undefined ? cardOfSession(call.cards(), call.caller.id) : undefined
 
+  /** Who a verb is by: the calling worker's session, or `user`. */
+  const byOf = (call: CallCtx) => {
+    const card = callerCard(call)
+    return card ? { by: call.caller.id!, callsign: card.callsign } : { by: 'user' }
+  }
+
   /** A job's folder: absolute, or relative to the caller's checkout, or the checkout itself. */
   const folderOf = (cwd: string | undefined, card: Card | undefined): string | { problem: string } => {
     if (cwd && path.isAbsolute(cwd)) return cwd
@@ -130,29 +175,35 @@ const start: Start = (ctx: StartCtx) => {
     }
   }
 
-  const plain = (v: View, now: number) => ({
-    n: v.n,
-    label: v.label,
-    argv: v.argv,
-    cwd: v.cwd,
-    project: v.project,
-    by: v.by,
-    ...(v.callsign && { callsign: v.callsign }),
-    needs: v.needs,
-    tags: v.tags,
-    caps: v.caps,
-    ...(v.hours !== undefined && { hours: v.hours }),
-    status: v.status,
-    ...(v.outcome && { outcome: v.outcome }),
-    queuedAt: v.queuedAt,
-    ...(v.startedAt !== undefined && { startedAt: v.startedAt }),
-    ...(v.endedAt !== undefined && { endedAt: v.endedAt }),
-    ...(v.job && { job: v.job }),
-    ...(overdue(v, now) && { overdue: true }),
-  })
-
   return {
     reduce: { [QUEUE]: QUEUE_REDUCE },
+    folds: {
+      /**
+       * The board's part: the machine's resources and the jobs worth showing, for a page to draw; and each job whose
+       * requester couldn't be told on the user's list, at its floor, until it is marked seen.
+       */
+      board: (_board: Board, fold: FoldCtx): Part => {
+        const { resources } = fold.settings as Settings
+        const views = viewsOf(entriesOf((fold.own.streams[QUEUE] as QueueFacts).facts), fold.board.jobs, fold.board.jobsUp, fold.now)
+        const floors = new Set(fold.board.floors.map((f) => f.id))
+        const asks = listed(views)
+          .filter((v) => floors.has(v.project))
+          .map(
+            (v): Ask => ({
+              key: `job-${v.n}`,
+              subject: `floor:${v.project}`,
+              title: listTitle(v),
+              since: v.told!.at,
+              sound: 'wait',
+              actions: [{ verb: 'compute/seen', call: { job: v.n }, words: { label: 'Seen', hint: 'you read it: take it off the list' } }],
+            }),
+          )
+        return {
+          x: { resources, used: usedOf(views), queued: views.filter((v) => v.status === 'queued').length, jobs: recent(views, fold.now).map((v) => plainJob(v, fold.now)) },
+          ...(asks.length && { asks }),
+        }
+      },
+    },
     verbs: {
       run: async (
         input: { project: string; argv: string[]; need?: string[]; hours?: number; tag?: string[]; cap?: string[]; label?: string; cwd?: string; cleanup?: string },
@@ -180,13 +231,11 @@ const start: Start = (ctx: StartCtx) => {
           tags,
           caps,
           ...(input.cleanup && { cleanup: input.cleanup }),
-          by: card ? call.caller.id! : 'user',
-          ...(card && { callsign: card.callsign }),
+          ...byOf(call),
         }
         await append('j', fact)
         const n = entriesOf(factsOf()).length
-        const views = viewsNow()
-        const ahead = views.filter((v) => v.status === 'queued' && v.n < n).length
+        const ahead = viewsNow().filter((v) => v.status === 'queued' && v.n < n).length
         void tick()
         return {
           n,
@@ -197,8 +246,7 @@ const start: Start = (ctx: StartCtx) => {
         const v = viewsNow()[job - 1]
         if (!v) return apiError('not_found', `No job #${job}: \`tower x compute jobs\` lists them`)
         if (v.status === 'queued') {
-          const card = callerCard(call)
-          await append('q', { n: job, by: card ? call.caller.id! : 'user', ...(card && { callsign: card.callsign }) })
+          await append('q', { n: job, ...byOf(call) })
           return { said: `Withdrew #${job} ${v.label}: it never started.` }
         }
         if (v.status === 'running') {
@@ -206,6 +254,13 @@ const start: Start = (ctx: StartCtx) => {
           return { said: `Cancelling #${job} ${v.label}: the jobs daemon stops it${v.cleanup ? ', then its cleanup runs' : ''}, and its requester is told.` }
         }
         return apiError('refused', `#${job} ${v.label} is ${v.status === 'withdrawn' ? 'withdrawn already' : `over already: ${v.outcome}`}`)
+      },
+      seen: async ({ job }: { job: number }, call: CallCtx) => {
+        const v = viewsNow()[job - 1]
+        if (!v) return apiError('not_found', `No job #${job}: \`tower x compute jobs\` lists them`)
+        if (!listed([v]).length) return apiError('refused', `#${job} ${v.label} is not on the list: only a job whose requester couldn't be told is`)
+        await append('s', { n: job, by: byOf(call).by })
+        return { said: `#${job} ${v.label} is off the list.` }
       },
     },
     reads: {
@@ -216,15 +271,11 @@ const start: Start = (ctx: StartCtx) => {
         const tag = query.tag === undefined ? undefined : pairsOf([query.tag], 'tag', (v) => v)
         if (typeof tag === 'string') return apiError('invalid', `${tag}: tag=mission=boss-05`)
         const [name, value] = tag ? Object.entries(tag)[0] : []
-        const shown = views.filter((v) => {
-          if (name !== undefined && v.tags[name] !== value) return false
-          if (query.all === 'true' || v.status === 'queued' || v.status === 'running' || !v.told) return true
-          return v.told.at > now - DAY_MS
-        })
+        const shown = (query.all === 'true' ? views : recent(views, now)).filter((v) => name === undefined || v.tags[name] === value)
         return {
           resources,
           used: usedOf(views),
-          jobs: shown.map((v) => plain(v, now)),
+          jobs: shown.map((v) => plainJob(v, now)),
           lines: [resourcesLine(views, resources), ...(shown.length ? shown.map((v) => jobLine(v, views, resources, now)) : ['No job to show.'])],
         }
       },
