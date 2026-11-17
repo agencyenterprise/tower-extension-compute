@@ -1,6 +1,6 @@
 {
   "id": "compute",
-  "version": "1.1",
+  "version": "1.2",
   "title": "Compute",
   "description": "A queue for long or heavy commands on the machine the tower runs on: each runs in the jobs daemon once the machine's named resources (lanes, a GPU…) have room for it, oldest first, and whoever queued it is told when it is over.",
   "requires": { "tower": "2.0" },
