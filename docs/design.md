@@ -1,0 +1,67 @@
+# Design
+
+Why compute exists, what it takes from Esben Kran's autonomous research lab
+([kran-lab](https://github.com/esbenkc/kran-lab)), what it leaves out, and what comes next.
+
+## The problem
+
+Crews of agents on the tower run long, heavy work: agent trials in Docker lanes, model runs, rebuilds. Before compute,
+each crew ran them as background processes of a worker's own session. That had four costs:
+
+- **No one saw the machine.** Each crew picked its own concurrency, with no view of what other floors ran at the same
+  time.
+- **Nothing woke anyone.** A run ending was noticed only by a worker polling it from its turns.
+- **Cleanups reached too far.** A cleanup that matched containers by name would have removed other crews' work.
+- **Runs lived and died with a session.** The tower's jobs daemon, which outlives the tower, went unused.
+
+## What Esben's lab does, and what compute keeps
+
+| kran-lab piece | Problem it solves there | Here |
+| --- | --- | --- |
+| `labq`, a job queue to the owner's laptop | Heavy runs need a bigger machine than the agents' one, and must outlive the agent | Kept as the queue, on the same machine: the tower's jobs daemon runs each job |
+| `mps-lock`, a FIFO ticket lock | One heavy job at a time, fairly: plain `lockf` let chained steps starve the queue | Kept as named resources and an oldest-first scheduler: no lock files, no polling for a lock |
+| Heartbeats, stale-claim requeues, adoption | The queue was a remote API and the worker another machine | Left out: the jobs log is local and has one writer, and a lost job reads as lost on the board |
+| Telegram notices | The owner learns a job started and ended | Kept as a line at the requester's prompt |
+| Memory guard, disk guard, janitor | A small machine that agents ran out of memory and disk | Planned: start floors and stop floors (below) |
+| Load meter in the menu bar | The owner sees what the lab does with the machine | Planned: a load read the tower's pages draw |
+| Off / on / until 08:00, pause for a game | The owner's laptop, lent on the owner's terms | Planned: holds, of the machine or of one tag |
+| Per-room API budget, shared spend ledger, guard at the cap | A maxed card, spent by programs that can't see each other | Planned: spend pools (below) |
+| "Heavy" thresholds, honest estimates, disclosure | Rules the code can't decide | Left to whoever uses compute: the lab's playbooks say them |
+
+## Principles it keeps
+
+From the tower's [principles](https://github.com/RegiByte/the-tower/blob/main/PRINCIPLES.md):
+
+- **Extension before core.** Everything compute needs is already in the tower: `ctx.jobs`, the board's `jobs`,
+  system streams, `tower/submit`. The core doesn't change.
+- **Observe, don't store.** The queue stores what was asked and what compute did. Where a job stands is the jobs log's.
+- **Open systems first.** Compute knows nothing of missions, Docker or any provider. Resources are named by the
+  config, tags and caps group jobs for whoever calls, and cleanup is a command the job names.
+- **No credentials in the config.** A job reads its own keys. A pool's probe (below) is a command that holds its key.
+
+## Next
+
+In order, each small enough to build alone:
+
+1. **Spend pools.** `pools.<name> = { limitUsd, probe: "<command printing the key's used USD>", every, atLimit }` in
+   the settings. A job declares `--usd X --pool P` and starts only if the limit, less the latest reading and the
+   reservations of the pool's running jobs, leaves X. Readings and failed reads are facts. A harness reports spend
+   between readings with `spent`, since a provider's usage figure can lag real spend by minutes. At the limit, or
+   after a run of failed reads, a pool always stops new starts and asks the user. It cancels running jobs only when
+   `atLimit` says `cancel`.
+2. **The machine's floors and load.** A `load` read, computed when asked and never stored: free memory and disk, units
+   in use, CPU per running job by its process group, and jobs started outside the queue. Start floors keep a job from
+   starting below a free memory or disk level. Stop floors cancel the newest job compute started below a lower one, a
+   fact saying why.
+3. **Holds and bumps.** `hold [--tag k=v] [--until <time>]` and `release` stop starts for the machine or one group,
+   and never stop running jobs. `bump <n>` moves a queued job to the front.
+4. **A page section** on the tower page: the queue, the resources and the controls above, through the same verbs.
+
+## Known limits
+
+- The jobs daemon sends SIGTERM, then SIGKILL 5 s later. What a job can't tear down in that time is its cleanup's to
+  remove.
+- Stopping the jobs daemon (`tower down jobs`) ends every job, and nothing adopts them back. Long runs should be able
+  to resume.
+- Scheduling is oldest-first with passing: a job that needs much waits while smaller younger ones fit. A hold or a bump
+  is the remedy until a reservation rule earns its place.

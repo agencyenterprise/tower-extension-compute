@@ -1,0 +1,160 @@
+{
+  "id": "compute",
+  "version": "1.0",
+  "title": "Compute",
+  "description": "A queue for long or heavy commands on the machine the tower runs on: each runs in the jobs daemon once the machine's named resources (lanes, a GPU…) have room for it, oldest first, and whoever queued it is told when it is over.",
+  "requires": { "tower": "2.0" },
+  "server": "server.ts",
+  "settings": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "resources": {
+        "type": "object",
+        "additionalProperties": { "type": "integer", "minimum": 0 },
+        "default": { "lanes": 4 },
+        "description": "What the machine has room for, in units of named resources, such as { \"lanes\": 4, \"gpu\": 1 }: a job starts only while the units it needs are free. Machine-wide: a floor's own value is not read."
+      },
+      "defaultNeeds": {
+        "type": "object",
+        "additionalProperties": { "type": "integer", "minimum": 1 },
+        "default": { "lanes": 1 },
+        "description": "What a job that says nothing of its needs holds while it runs."
+      }
+    }
+  },
+  "streams": {
+    "queue": {
+      "scope": "system",
+      "description": "The machine's queue, oldest first: each job queued, started in the jobs daemon or refused by it, withdrawn before it started, and its requester told once it was over. Jobs are numbered from 1 in the order they were queued. Where a started job stands is the jobs log's, read from the board.",
+      "facts": {
+        "j": {
+          "description": "A job queued: its command, folder and label, the floor it was asked from, the resources it needs, the hours expected, its tags and the caps on them, a cleanup command, and who asked.",
+          "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["argv", "cwd", "label", "project", "needs", "tags", "caps", "by"],
+            "properties": {
+              "argv": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+              "cwd": { "type": "string", "minLength": 1 },
+              "label": { "type": "string", "minLength": 1 },
+              "project": { "type": "string", "minLength": 1 },
+              "needs": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } },
+              "hours": { "type": "number", "exclusiveMinimum": 0 },
+              "tags": { "type": "object", "additionalProperties": { "type": "string" } },
+              "caps": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } },
+              "cleanup": { "type": "string", "minLength": 1 },
+              "by": { "type": "string", "minLength": 1 },
+              "callsign": { "type": "string" }
+            }
+          }
+        },
+        "o": {
+          "description": "The scheduler started a queued job in the jobs daemon: `job` is the daemon's id for it.",
+          "schema": { "type": "object", "additionalProperties": false, "required": ["n", "job"], "properties": { "n": { "type": "integer", "minimum": 1 }, "job": { "type": "string", "minLength": 1 } } }
+        },
+        "f": {
+          "description": "The jobs daemon refused to start a queued job, and why.",
+          "schema": { "type": "object", "additionalProperties": false, "required": ["n", "reason"], "properties": { "n": { "type": "integer", "minimum": 1 }, "reason": { "type": "string" } } }
+        },
+        "q": {
+          "description": "A queued job taken out of the queue before it started, and by whom (a session, or `user`).",
+          "schema": { "type": "object", "additionalProperties": false, "required": ["n", "by"], "properties": { "n": { "type": "integer", "minimum": 1 }, "by": { "type": "string" }, "callsign": { "type": "string" } } }
+        },
+        "y": {
+          "description": "A job was over and its requester was told: what it was told (`outcome`), whom (`to`), why it couldn't be (`failed`), and how the job's cleanup command went.",
+          "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["n", "outcome"],
+            "properties": {
+              "n": { "type": "integer", "minimum": 1 },
+              "outcome": { "type": "string", "minLength": 1 },
+              "to": { "type": "string" },
+              "failed": { "type": "string" },
+              "cleanup": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["exit"],
+                "properties": { "exit": { "type": ["integer", "null"] }, "signal": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "verbs": {
+    "run": {
+      "scope": "project",
+      "description": "Queue a command to run in the jobs daemon once the machine has room for what it needs, oldest first. It runs to its end outside your session and takes no input; you are told at your prompt when it is over. Its command is kept in the jobs log, which everyone reads: never put a secret or a result in it, and let the command read its own keys.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project", "argv"],
+        "properties": {
+          "project": { "type": "string" },
+          "argv": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "The command, its program first." },
+          "need": { "type": "array", "items": { "type": "string" }, "description": "What it holds while it runs, as resource=units (lanes=2); the settings' defaultNeeds when left out." },
+          "hours": { "type": "number", "exclusiveMinimum": 0, "description": "How long you expect it to run: the queue says when it runs past it." },
+          "tag": { "type": "array", "items": { "type": "string" }, "description": "name=value words to group your jobs by (mission=boss-05-x): reads filter on them." },
+          "cap": { "type": "array", "items": { "type": "string" }, "description": "tag=n: at most n jobs with this job's value of the tag run at once." },
+          "label": { "type": "string", "minLength": 1, "description": "What it is, in a few words, as the queue and the jobs list show it; its command when left out." },
+          "cwd": { "type": "string", "minLength": 1, "description": "The folder it runs in: absolute, or relative to your checkout; your checkout when left out." },
+          "cleanup": { "type": "string", "minLength": 1, "description": "A shell command run in the job's folder once it is over, cancelled included, with COMPUTE_JOB set to its number: for what the job leaves outside itself (containers labelled with $COMPUTE_JOB)." }
+        }
+      },
+      "reply": {
+        "type": "object",
+        "required": ["n", "said"],
+        "properties": { "n": { "type": "integer", "minimum": 1 }, "said": { "type": "string" } }
+      },
+      "cli": {
+        "positional": ["argv"],
+        "print": "said",
+        "usage": "run [--need <resource>=<units>]… [--hours <h>] [--tag <name>=<value>]… [--cap <tag>=<n>]… [--label <words>] [--cwd <dir>] [--cleanup <command>] -- <command…>"
+      }
+    },
+    "cancel": {
+      "scope": "system",
+      "description": "Stop a job by its number: one still queued is withdrawn, one running is cancelled in the jobs daemon (SIGTERM to its process group, SIGKILL 5 s later) and its cleanup runs.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["job"],
+        "properties": { "job": { "type": "integer", "minimum": 1, "description": "The job's number in the queue (#3 is 3)." } }
+      },
+      "reply": { "type": "object", "required": ["said"], "properties": { "said": { "type": "string" } } },
+      "cli": { "positional": ["job"], "print": "said" }
+    }
+  },
+  "reads": {
+    "jobs": {
+      "scope": "system",
+      "description": "The queue: the machine's resources in use, and each job queued, running, or over within the last day (every job with all=true), oldest first, with where it stands. tag=name=value keeps the jobs carrying that tag.",
+      "query": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tag": { "type": "string", "description": "name=value: only the jobs carrying it." },
+          "all": { "type": "string", "enum": ["true", "false"], "description": "true: every job the queue holds, not only the last day's." }
+        }
+      },
+      "reply": {
+        "type": "object",
+        "required": ["resources", "used", "jobs", "lines"],
+        "properties": {
+          "resources": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "used": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "jobs": { "type": "array", "items": { "type": "object" } },
+          "lines": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "cli": { "word": "jobs", "print": "lines", "usage": "jobs [--tag <name>=<value>] [--all true]" }
+    }
+  },
+  "guidance": {
+    "brief": "Long or heavy runs: `tower x compute run --need lanes=2 -- <command>` queues one within the machine's resources and tells you when it's over; `tower x compute jobs` shows the queue.",
+    "full": "Compute queues long or heavy commands for the machine the tower runs on, so many workers on many floors share it without starting more than it holds.\n\n- `tower x compute run [--need lanes=2] [--hours 3] [--label \"plain words\"] [--cwd <dir>] [--cleanup \"<command>\"] -- <command…>` queues one. It starts in the jobs daemon once the machine's resources (`tower x compute jobs` says them) have room for what it needs, oldest first, runs to its end outside your session, and outlives a tower restart. You are told at your prompt when it is over, with its exit: don't poll it from your turns.\n- Its command is kept in the jobs log, which every worker reads: no secrets and no results in it or its label. Let the command read its keys from its own folder.\n- Containers or other things it starts outside its own process group aren't stopped with it: label them with `$COMPUTE_JOB` (its number, set in its env) and pass `--cleanup` that removes only those.\n- `tower x compute jobs` lists the queue and the running jobs with where each stands; `tower x compute cancel <n>` withdraws or stops one.\n- `--tag name=value` groups your jobs (reads filter on it), and `--cap tag=n` keeps at most n jobs with that value running at once."
+  }
+}

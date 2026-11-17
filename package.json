@@ -1,0 +1,18 @@
+{
+  "name": "tower-extension-compute",
+  "private": true,
+  "type": "module",
+  "description": "Compute, an extension of the tower (https://github.com/RegiByte/the-tower): a queue for long or heavy commands within the machine's resources.",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "types": "tower types .",
+    "typecheck": "tsc -p .",
+    "test": "node --import tsx --test test/*.test.ts",
+    "check": "tower extensions check ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
