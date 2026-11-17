@@ -13,7 +13,8 @@
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="/" data-tip="Back to the tower">Compute</a>
+  <a id="back" class="back" href="/" target="_top" data-tip="Back to the tower">Tower</a>
+  <h1 class="brand">Compute</h1>
   <div id="meter" class="c-meter" aria-live="polite"></div>
   <div class="filters" role="search">
     <label>Floor <select id="floor" aria-label="Floor"></select></label>
@@ -25,7 +26,7 @@
 <aside id="screen" class="screen" hidden>
   <div class="screen-head">
     <span id="screen-title" class="one-line"></span>
-    <button type="button" id="screen-close" class="link">Close</button>
+    <button type="button" id="screen-close" class="quiet">Close</button>
   </div>
   <div id="screen-term" class="screen-term"></div>
 </aside>
