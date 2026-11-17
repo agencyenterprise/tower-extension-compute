@@ -5,6 +5,10 @@ import {
   count,
   entriesOf,
   jobLine,
+  listed,
+  listTitle,
+  recent,
+  resumeText,
   nextStarts,
   outcomeOf,
   pairsOf,
@@ -157,4 +161,46 @@ test('a queued job says what it waits for', () => {
   const v = views(facts, [{ id: 'job-1', state: 'running', startedAt: 2 }])
   assert.match(jobLine(v[1], v, lanes, 10 * MIN), /^#2 queued, waits for 2 lanes \(0 of 4 free\) · second/)
   assert.match(jobLine(v[0], v, lanes, 10 * MIN), /^#1 running 10 min \(job-1\)/)
+})
+
+test('a job whose requester could not be told is on the list until seen', () => {
+  const facts: QueueFact[] = [
+    [1, 'j', job({ tags: { mission: 'm1' } })],
+    [2, 'o', { n: 1, job: 'job-1' }],
+    [3, 'y', { n: 1, outcome: 'exit 1 after 3 min', to: 'BRUNO-01', failed: "BRUNO-01 can't be found on lab-research" }],
+  ]
+  const ended: BoardJob[] = [{ id: 'job-1', state: 'ended', startedAt: 2, endedAt: 3, exit: 1 }]
+  const [onList] = listed(views(facts, ended))
+  assert.equal(listTitle(onList), "Job #1 (a run) by BRUNO-01 is over: exit 1 after 3 min. Not told: BRUNO-01 can't be found on lab-research.")
+  assert.match(jobLine(onList, views(facts, ended), lanes, 10 * MIN), /not told \(BRUNO-01 can't be found on lab-research\), on the list$|, on the list ·/)
+  const seen: QueueFact[] = [...facts, [4, 's', { n: 1, by: 'user' }]]
+  assert.deepEqual(listed(views(seen, ended)), [])
+})
+
+test('a resumed requester is told so, with the job and its tags', () => {
+  const facts: QueueFact[] = [
+    [1, 'j', job({ tags: { mission: 'm1' } })],
+    [2, 'o', { n: 1, job: 'job-1' }],
+  ]
+  const [over] = untold(views(facts, [{ id: 'job-1', state: 'ended', startedAt: 2, endedAt: 2 + 5 * MIN, exit: 0 }]))
+  const text = resumeText(over)
+  assert.match(text, /^\[compute\] You were resumed because a job you queued is over and you weren't running to be told\. Your job #1 \(a run\) is over: exit 0 after 5 min\. Its tags: mission=m1\./)
+  assert.match(text, /Check whether the work it was for still goes on/)
+})
+
+test('what is worth showing: live jobs, listed ones, and the last day of the rest', () => {
+  const now = 3 * DAY_MS
+  const facts: QueueFact[] = [
+    [1, 'j', job({ label: 'old' })],
+    [2, 'o', { n: 1, job: 'job-1' }],
+    [3, 'y', { n: 1, outcome: 'exit 0 after 1 s' }],
+    [4, 'j', job({ label: 'old, never told' })],
+    [5, 'o', { n: 2, job: 'job-2' }],
+    [6, 'y', { n: 2, outcome: 'exit 1 after 1 s', failed: 'it was queued from outside a worker' }],
+    [now - MIN, 'j', job({ label: 'fresh' })],
+  ]
+  assert.deepEqual(
+    recent(views(facts, [], now), now).map((v) => v.label),
+    ['old, never told', 'fresh'],
+  )
 })

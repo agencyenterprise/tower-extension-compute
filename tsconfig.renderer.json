@@ -1,0 +1,5 @@
+{
+  "extends": "./.tower/tsconfig.json",
+  "compilerOptions": { "allowJs": true, "checkJs": true },
+  "include": ["renderer/*.js", ".tower/types/src/tower/client.d.ts"]
+}

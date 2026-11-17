@@ -1,0 +1,95 @@
+/*
+ * The Compute page: the machine's queue, drawn from the board's `x.compute`. It follows the tower's palette
+ * (/design.css), light and dark. A state is `t-<tone>` to stay clear of design.css's own class names.
+ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; display: flex; flex-direction: column; background: var(--wall); color: var(--ink); font: var(--fs-m)/1.45 var(--ui); }
+a { color: var(--accent); }
+.note, .muted { color: var(--muted); }
+.note.broken { color: var(--broken-text); }
+.one-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; }
+
+/* ---- the top: name, the meter, the filters ---- */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-m) var(--sp-l); padding: var(--sp-m) var(--sp-l); background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { color: var(--ink); text-decoration: none; font: 900 var(--fs-xl)/1 var(--display); }
+/* `.meter` is design.css's own bar: the lanes' meter is `.c-meter`. */
+.c-meter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-s) var(--sp-l); }
+.res { display: flex; align-items: center; gap: var(--sp-s); font-size: var(--fs-s); }
+.res .name { color: var(--muted); }
+.res .num { font: 700 var(--fs-s) var(--mono); }
+.bar { display: flex; gap: 2px; }
+.bar i { width: 10px; height: 8px; border-radius: 2px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--line); }
+.bar i.on { background: var(--accent); box-shadow: none; }
+.res.full .bar i.on { background: var(--needs); }
+.res.full .num { color: var(--needs-text); }
+.queued { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--sunk); color: var(--muted); font: 700 var(--fs-xs) var(--mono); }
+.queued.waiting { background: color-mix(in srgb, var(--needs) 18%, transparent); color: var(--needs-text); }
+.filters { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-s); font-size: var(--fs-s); color: var(--muted); }
+.filters select, .filters input { padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); color: var(--ink); font: var(--fs-s) var(--ui); }
+.filters input { width: 16em; max-width: 100%; }
+.filters :is(select, input):focus { outline: none; border-color: var(--accent); }
+
+/* ---- the jobs ---- */
+main { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-l); }
+section { margin-bottom: var(--sp-xl); }
+section h2 { margin: 0 0 var(--sp-s); }
+.jobs { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); font-size: var(--fs-s); }
+/* One set of column widths for every section, so the tables line up. */
+.jobs col.c-n { width: 4.5em; } .jobs col.c-who { width: 10em; } .jobs col.c-state { width: 30%; } .jobs col.c-time { width: 9em; }
+.jobs col.c-holds { width: 7em; } .jobs col.c-acts { width: 13em; }
+.jobs th { text-align: left; padding: 6px 10px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.jobs td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.jobs tr:last-child td { border-bottom: 0; }
+.jobs .n { font: 700 var(--fs-s) var(--mono); color: var(--muted); white-space: nowrap; }
+.jobs .label { font-weight: 600; max-width: 28em; }
+.jobs .cmd { display: block; color: var(--faint); font: var(--fs-xs) var(--mono); max-width: 36em; }
+.jobs .who { white-space: nowrap; }
+.jobs .who small { display: block; color: var(--faint); }
+.jobs .time { white-space: nowrap; font-family: var(--mono); }
+.jobs .acts { white-space: nowrap; text-align: right; }
+.jobs .acts button + button { margin-left: var(--sp-s); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip-t { padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font: var(--fs-xs) var(--mono); line-height: 1.7; background: none; cursor: pointer; }
+.chip-t:hover { color: var(--ink); border-color: var(--accent); }
+.state { font-weight: 600; }
+.t-ready { color: var(--ready-text); }
+.t-needs { color: var(--needs-text); }
+.t-broken { color: var(--broken-text); }
+.t-quiet { color: var(--muted); }
+.why { display: block; color: var(--muted); font-weight: 400; }
+.listed { display: block; color: var(--needs-text); font-weight: 400; }
+.empty { padding: var(--sp-m); color: var(--muted); }
+button.act { padding: 3px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); color: var(--ink); font: var(--fs-s) var(--ui); cursor: pointer; }
+button.act:hover { border-color: var(--accent); }
+button.act.danger:hover { border-color: var(--broken); color: var(--broken-text); }
+
+/* ---- a job's screen, read only, at the foot of the page ---- */
+.screen { flex: 0 0 40vh; display: flex; flex-direction: column; border-top: 1px solid var(--line-strong); background: var(--panel); }
+.screen[hidden] { display: none; }
+.screen-head { display: flex; align-items: center; gap: var(--sp-m); padding: var(--sp-s) var(--sp-l); border-bottom: 1px solid var(--line); font-size: var(--fs-s); }
+.screen-head span { flex: 1; font-weight: 600; }
+.screen-term { flex: 1; min-height: 0; padding: var(--sp-s); overflow: hidden; }
+
+/* ---- which version runs, at the page's foot ---- */
+.foot { flex: none; display: flex; justify-content: flex-end; padding: 2px var(--sp-l); border-top: 1px solid var(--line); background: var(--panel); }
+.version { padding: 0 var(--sp-2xs); border: 0; border-radius: 4px; background: none; color: var(--faint); font: var(--fs-xs) var(--ui); cursor: pointer; }
+.version:hover { color: var(--ink); background: color-mix(in oklab, var(--ink) 7%, transparent); }
+
+#toasts { position: fixed; right: var(--sp-l); bottom: var(--sp-l); display: grid; gap: var(--sp-s); }
+.toast { padding: var(--sp-s) var(--sp-m); border-radius: var(--radius); background: var(--ink); color: var(--panel); font-size: var(--fs-s); max-width: 28em; }
+
+/* Narrow: each job is a block of its cells, stacked, with no header row. */
+@media (max-width: 720px) {
+  main { padding: var(--sp-m); }
+  .filters { margin-left: 0; }
+  .jobs, .jobs tbody, .jobs tr, .jobs td { display: block; width: auto; }
+  .jobs thead, .jobs colgroup, .jobs .needs-col, .jobs .cmd { display: none; }
+  .jobs tr { position: relative; padding: var(--sp-s) var(--sp-m) var(--sp-s) 3.5em; border-bottom: 1px solid var(--line); }
+  .jobs tr:last-child { border-bottom: 0; }
+  .jobs td { padding: 2px 0; border: 0; }
+  .jobs td.n { position: absolute; left: var(--sp-m); top: var(--sp-s); }
+  .jobs .label { max-width: none; }
+  .jobs .acts { text-align: left; padding-top: var(--sp-s); }
+}

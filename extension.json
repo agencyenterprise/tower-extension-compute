@@ -1,6 +1,6 @@
 {
   "id": "compute",
-  "version": "1.0",
+  "version": "1.1",
   "title": "Compute",
   "description": "A queue for long or heavy commands on the machine the tower runs on: each runs in the jobs daemon once the machine's named resources (lanes, a GPU…) have room for it, oldest first, and whoever queued it is told when it is over.",
   "requires": { "tower": "2.0" },
@@ -61,8 +61,12 @@
           "description": "A queued job taken out of the queue before it started, and by whom (a session, or `user`).",
           "schema": { "type": "object", "additionalProperties": false, "required": ["n", "by"], "properties": { "n": { "type": "integer", "minimum": 1 }, "by": { "type": "string" }, "callsign": { "type": "string" } } }
         },
+        "s": {
+          "description": "A job on the user's list was marked seen and taken off it, by a session or `user`.",
+          "schema": { "type": "object", "additionalProperties": false, "required": ["n", "by"], "properties": { "n": { "type": "integer", "minimum": 1 }, "by": { "type": "string" } } }
+        },
         "y": {
-          "description": "A job was over and its requester was told: what it was told (`outcome`), whom (`to`), why it couldn't be (`failed`), and how the job's cleanup command went.",
+          "description": "A job was over and compute was done telling its requester: what it said (`outcome`), to whom (`to`), the session it resumed the requester in when that worker wasn't running (`resumed`), why the requester couldn't be told (`failed`: the job is then on the user's list until seen), and how the job's cleanup command went.",
           "schema": {
             "type": "object",
             "additionalProperties": false,
@@ -71,6 +75,7 @@
               "n": { "type": "integer", "minimum": 1 },
               "outcome": { "type": "string", "minLength": 1 },
               "to": { "type": "string" },
+              "resumed": { "type": "string" },
               "failed": { "type": "string" },
               "cleanup": {
                 "type": "object",
@@ -125,7 +130,37 @@
         "properties": { "job": { "type": "integer", "minimum": 1, "description": "The job's number in the queue (#3 is 3)." } }
       },
       "reply": { "type": "object", "required": ["said"], "properties": { "said": { "type": "string" } } },
-      "cli": { "positional": ["job"], "print": "said" }
+      "cli": { "positional": ["job"], "print": "said" },
+      "words": { "label": "Cancel", "hint": "withdraw it if it's queued, stop it if it runs", "destructive": true }
+    },
+    "seen": {
+      "scope": "system",
+      "description": "Take a job off the user's list: one whose requester couldn't be told it was over (queued from outside a worker, a worker that can't be found, or a resume the tower refused).",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["job"],
+        "properties": { "job": { "type": "integer", "minimum": 1, "description": "The job's number in the queue (#3 is 3)." } }
+      },
+      "reply": { "type": "object", "required": ["said"], "properties": { "said": { "type": "string" } } },
+      "cli": { "positional": ["job"], "print": "said" },
+      "words": { "label": "Seen", "hint": "you read it: take it off the list" }
+    }
+  },
+  "folds": {
+    "board": {
+      "x": {
+        "type": "object",
+        "required": ["resources", "used", "queued", "jobs"],
+        "description": "The machine's resources and the units in use, how many jobs are queued, and the jobs worth showing, oldest first: queued, running, over and not yet told or on the user's list, and the rest from the last day. Each job as the `jobs` read gives it.",
+        "properties": {
+          "resources": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "used": { "type": "object", "additionalProperties": { "type": "integer" } },
+          "queued": { "type": "integer", "minimum": 0 },
+          "jobs": { "type": "array", "items": { "type": "object", "required": ["n", "label", "project", "status", "queuedAt"] } }
+        }
+      },
+      "adds": ["asks"]
     }
   },
   "reads": {
