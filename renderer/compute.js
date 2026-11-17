@@ -176,6 +176,23 @@ const draw = () => {
 
 // ---------- a job's screen ----------
 
+/**
+ * A cell of `font`, in px, measured as the tower's `fitSize` measures one (src/shared/terminal.ts): the W's advance,
+ * and the face's ascent and descent rounded to whole device pixels.
+ */
+const cellOf = (/** @type {{ family: string, size: number }} */ { family, size }) => {
+  const text = /** @type {OffscreenCanvasRenderingContext2D} */ (new OffscreenCanvas(1, 1).getContext('2d'))
+  text.font = `${size}px ${family}`
+  const w = text.measureText('W')
+  return { width: w.width, height: Math.ceil((w.fontBoundingBoxAscent + w.fontBoundingBoxDescent) * devicePixelRatio) / devicePixelRatio }
+}
+
+/**
+ * A job's PTY has its own size (the jobs daemon's 120×40), and a view that only watches draws it at the largest font at
+ * which all its cells fit the box, at most the viewer's terminal size. In a card a third of the page high, that is the
+ * smallest font there is. So the cells get a box of their full size at the viewer's font, as the tower page's terminals
+ * draw, and the well around it scrolls, following the cursor as the job writes.
+ */
 const openScreen = async (/** @type {number} */ n) => {
   /** @type {Job | undefined} */
   const j = state.board?.x?.compute?.jobs.find((/** @type {Job} */ x) => x.n === n)
@@ -183,16 +200,47 @@ const openScreen = async (/** @type {number} */ n) => {
   state.screen?.close()
   $('screen').hidden = false
   $('screen-title').textContent = `#${j.n} ${j.label} · ${j.job}`
-  const host = $('screen-term')
-  host.innerHTML = ''
+  const well = $('screen-term')
+  well.innerHTML = ''
+  well.scrollTop = 0
+  const host = document.createElement('div')
+  host.className = 'screen-cells'
+  well.append(host)
   const font = () => terminalFont(tower.prefs.get())
   await loadTerminalFont(font())
   const xterm = { Terminal: /** @type {any} */ (window).Terminal, FitAddon: /** @type {any} */ (window).FitAddon.FitAddon }
   const id = j.job
+  /** The box for the PTY's cells at the viewer's font, set before the view draws them. */
+  const size = (/** @type {{ cols: number, rows: number }} */ { cols, rows }) => {
+    const cell = cellOf(font())
+    host.style.width = `${Math.ceil(cols * cell.width)}px`
+    host.style.height = `${Math.ceil(rows * cell.height)}px`
+  }
+  /** The cursor's row in sight: the job writes there. */
+  const follow = () => {
+    const term = handle.term()
+    if (!term) return
+    const row = host.offsetHeight / term.rows
+    const top = term.buffer.active.cursorY * row
+    if (top + row > well.scrollTop + well.clientHeight) well.scrollTop = top + row - well.clientHeight
+    else if (top < well.scrollTop) well.scrollTop = top
+  }
+  /**
+   * The terminal's ground is the card's graphite (`--term-bg`), not the core's enamel: the library takes only a scheme,
+   * so its theme is xterm's own option, set as each snapshot opens a terminal.
+   */
+  const ground = () => {
+    const term = handle.term()
+    if (!term) return
+    const bg = getComputedStyle(well).getPropertyValue('--term-bg').trim()
+    term.options.theme = { ...term.options.theme, background: bg, cursorAccent: bg }
+    term.onCursorMove(follow)
+  }
   const handle = mountTermView(host, xterm, {
     watch: (on) =>
       tower.watch(`job/${id}/screen`, (/** @type {any} */ msg) => {
-        if (msg.t === 'snapshot') return on({ ...msg, terminals: 1 })
+        if (msg.t === 'snapshot') return size(msg), on({ ...msg, terminals: 1 }), ground(), follow()
+        if (msg.t === 'r') size(msg)
         if (msg.t === 'x') return on({ t: 'x', exitCode: msg.exit ?? 1 })
         if (msg.t === 'error') return toast(`The tower no longer keeps that job's screen: ${msg.message ?? ''}`)
         on(msg)
