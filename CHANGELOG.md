@@ -8,6 +8,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.6] - 2026-11-18
+
 ### Added
 - The Compute page groups the jobs by a tag: a **Group by** picker beside the filters, kept in the page's hash. Each
   value of the tag is a card: its CPU and memory now as bars against the machine's, the lanes it holds as lamps, its
@@ -80,7 +82,9 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.4...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.6...HEAD
+[1.6]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.5...v1.6
+[1.5]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.4...v1.5
 [1.4]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.3...v1.4
 [1.3]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.2...v1.3
 [1.2]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.1...v1.2
