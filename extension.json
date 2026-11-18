@@ -3,7 +3,7 @@
   "version": "1.3",
   "title": "Compute",
   "description": "A queue for long or heavy commands on the machine the tower runs on: each runs in the jobs daemon once the machine's named resources (lanes, a GPU…) have room for it, oldest first, and whoever queued it is told when it is over.",
-  "requires": { "tower": "2.0" },
+  "requires": { "tower": "2.10" },
   "server": "server.ts",
   "settings": {
     "type": "object",
@@ -186,6 +186,34 @@
         }
       },
       "cli": { "word": "jobs", "print": "lines", "usage": "jobs [--tag <name>=<value>] [--all true]" }
+    },
+    "machine": {
+      "scope": "system",
+      "description": "The machine, read when asked (a read within 5 s of the last answers the last): its load over the cores, memory in use (vm_stat on macOS, as Activity Monitor counts it; /proc/meminfo on Linux), the disk holding the home folder, and every process's CPU and memory by owner: each worker (by TOWER_SESSION_ID, whatever its runtime), each job in the jobs daemon by its process group (compute's by number, the rest together), the tower's shells, the tower's own daemons, and everything else. A process with no mark counts as its parent's. CPU is percent of one core, as ps says it; memory is resident bytes.",
+      "query": { "type": "object", "additionalProperties": false, "properties": {} },
+      "reply": {
+        "type": "object",
+        "required": ["at", "cpus", "load", "disk", "tones", "use", "lines"],
+        "properties": {
+          "at": { "type": "integer" },
+          "cpus": { "type": "integer", "minimum": 1 },
+          "load": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0 } },
+          "memory": { "type": "object", "required": ["total", "used"], "properties": { "total": { "type": "number" }, "used": { "type": "number" }, "compressed": { "type": "number" } } },
+          "disk": { "type": "object", "required": ["path", "total", "free"], "properties": { "path": { "type": "string" }, "total": { "type": "number" }, "free": { "type": "number" } } },
+          "tones": {
+            "type": "object",
+            "description": "How full each is: calm, busy or over. Load busy from 70% of the cores, over past 100%; memory from 75%, past 90%; disk from 85% full, past 95%.",
+            "properties": { "load": { "enum": ["calm", "busy", "over"] }, "memory": { "enum": ["calm", "busy", "over"] }, "disk": { "enum": ["calm", "busy", "over"] } }
+          },
+          "use": {
+            "type": "object",
+            "description": "Each owner's { cpu, rss, procs }. workers and jobs are lists, heaviest first, a worker with its callsign and floor while the board holds it, a job with its label.",
+            "required": ["workers", "jobs", "otherJobs", "shells", "tower", "rest", "total"]
+          },
+          "lines": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "cli": { "word": "machine", "print": "lines" }
     }
   },
   "guidance": {

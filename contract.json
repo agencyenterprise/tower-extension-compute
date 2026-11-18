@@ -6,6 +6,7 @@
     "verbs.cancel",
     "verbs.seen",
     "reads.jobs",
+    "reads.machine",
     "streams.queue.j",
     "streams.queue.o",
     "streams.queue.f",
@@ -35,6 +36,8 @@
     "words.jobs",
     "words.jobs.--tag",
     "words.jobs.--all",
-    "words.jobs.print.lines"
+    "words.jobs.print.lines",
+    "words.machine",
+    "words.machine.print.lines"
   ]
 }

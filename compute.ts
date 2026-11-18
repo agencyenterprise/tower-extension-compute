@@ -324,3 +324,222 @@ export const resourcesLine = (views: View[], resources: Record<string, number>):
     .join(', ')
   return `${of || 'no resources set'} · ${queued} queued`
 }
+
+// ---------- the machine: its load, memory and disk, and who uses them ----------
+
+/** How full a measure is, in three tones a page colours: `calm`, `busy` past `warm`, `over` past `hot`. */
+export type Tone = 'calm' | 'busy' | 'over'
+const toneAt = (share: number, warm: number, hot: number): Tone => (share > hot ? 'over' : share >= warm ? 'busy' : 'calm')
+
+/** The run queue over the cores: busy from 70%, over past 100%, when work waits for a core. */
+export const loadTone = (load1: number, cpus: number): Tone => toneAt(load1 / cpus, 0.7, 1)
+/** Memory in use: busy from 75%, over past 90%. */
+export const memoryTone = (used: number, total: number): Tone => toneAt(used / total, 0.75, 0.9)
+/** A disk: busy from 85% full, over past 95%. */
+export const diskTone = (free: number, total: number): Tone => toneAt(1 - free / total, 0.85, 0.95)
+
+/**
+ * A process as `ps` tells it: its parent and process group, its CPU (percent of one core, ps's own average over the
+ * last moments), its resident memory in bytes, and the marks its environment or command carry: the worker's session
+ * (`TOWER_SESSION_ID`, which every process a worker starts inherits), a compute job's number (`COMPUTE_JOB`), and which
+ * of the tower's own daemons it is.
+ */
+export type Proc = { pid: number; ppid: number; pgid: number; cpu: number; rss: number; session?: string; job?: number; daemon?: Daemon }
+export type Daemon = 'host' | 'terms' | 'jobs' | 'tower'
+
+const STATS_LINE = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s*$/
+const MARKED_LINE = /^\s*(\d+)\s+(.*)$/
+const SESSION_MARK = /(?:^|\s)TOWER_SESSION_ID=([\w-]+)/
+const JOB_MARK = /(?:^|\s)COMPUTE_JOB=(\d+)(?:\s|$)/
+/** The tower's daemons, by the script each runs: a launch the tower changes leaves them under everything else. */
+const DAEMON_SCRIPT = /\/src\/(host|terms|jobs)\/main\.ts(?:\s|$)|\/src\/(tower)\/server\.ts(?:\s|$)/
+
+/**
+ * `stats` is `ps -A -o pid=,ppid=,pgid=,pcpu=,rss=` (rss in KiB); `marked` is `ps -A -ww -E -o pid=,command=` (`e` on Linux),
+ * whose command runs into the environment with nothing between them, read only for the marks. A process in one but not
+ * the other, started or ended between the two reads, is left out.
+ */
+export const parseProcs = (stats: string, marked: string): Map<number, Proc> => {
+  const marks = new Map<number, string>()
+  for (const row of marked.split('\n')) {
+    const m = MARKED_LINE.exec(row)
+    if (m) marks.set(Number(m[1]), m[2])
+  }
+  const procs = new Map<number, Proc>()
+  for (const row of stats.split('\n')) {
+    const m = STATS_LINE.exec(row)
+    if (!m) continue
+    const pid = Number(m[1])
+    const text = marks.get(pid)
+    if (text === undefined) continue
+    const session = SESSION_MARK.exec(text)?.[1]
+    const job = JOB_MARK.exec(text)?.[1]
+    const daemon = DAEMON_SCRIPT.exec(text)
+    procs.set(pid, {
+      pid,
+      ppid: Number(m[2]),
+      pgid: Number(m[3]),
+      cpu: Number(m[4]),
+      rss: Number(m[5]) * 1024,
+      ...(session !== undefined && { session }),
+      ...(job !== undefined && { job: Number(job) }),
+      ...(daemon && { daemon: (daemon[1] ?? daemon[2]) as Daemon }),
+    })
+  }
+  return procs
+}
+
+/**
+ * Whose a process is: a worker's, a compute job's, another job in the jobs daemon (one compute didn't start), a shell
+ * the tower's terms daemon holds, the tower's own daemons, or the rest of the machine.
+ */
+export type Owner = { t: 'worker'; session: string } | { t: 'job'; n: number } | { t: 'jobs' } | { t: 'shells' } | { t: 'tower' } | { t: 'rest' }
+
+/**
+ * The running jobs' process groups and whose each is: a compute job's number, or another job. A job's pid is its group
+ * (the jobs daemon makes it so), which holds what it runs unless a process leaves the group.
+ */
+export const jobGroups = (jobs: { id: string; pid: number; state: BoardJob['state'] }[], views: View[]): Map<number, Owner> => {
+  const ours = new Map(views.filter((v) => v.job !== undefined).map((v) => [v.job!, v.n]))
+  return new Map(
+    jobs
+      .filter((j) => j.state === 'running')
+      .map((j): [number, Owner] => {
+        const n = ours.get(j.id)
+        return [j.pid, n === undefined ? { t: 'jobs' } : { t: 'job', n }]
+      }),
+  )
+}
+
+/**
+ * Each process's owner: a compute job's own mark, then the running job whose process group it is in, then a worker's
+ * mark, then being one of the tower's daemons; else its parent's, so a program that hides its environment (Apple's own
+ * binaries do) counts as whoever started it. A child of the terms daemon with no mark is a shell. Read up the tree,
+ * each answer kept.
+ */
+export const ownersOf = (procs: Map<number, Proc>, groups: Map<number, Owner>): Map<number, Owner> => {
+  const owners = new Map<number, Owner>()
+  const of = (pid: number, seen: Set<number>): Owner => {
+    const known = owners.get(pid)
+    if (known) return known
+    const p = procs.get(pid)
+    const parent = p ? procs.get(p.ppid) : undefined
+    const owner: Owner =
+      !p || seen.has(pid)
+        ? { t: 'rest' }
+        : p.job !== undefined
+          ? { t: 'job', n: p.job }
+          : (groups.get(p.pgid) ??
+            (p.session !== undefined
+              ? { t: 'worker', session: p.session }
+              : p.daemon
+                ? { t: 'tower' }
+                : parent?.daemon === 'terms'
+                  ? { t: 'shells' }
+                  : p.ppid <= 1
+                    ? { t: 'rest' }
+                    : of(p.ppid, seen.add(pid))))
+    owners.set(pid, owner)
+    return owner
+  }
+  for (const pid of procs.keys()) of(pid, new Set())
+  return owners
+}
+
+/** What a group of processes uses: CPU in percent of one core, resident memory in bytes, and how many there are. */
+export type Use = { cpu: number; rss: number; procs: number }
+const NONE: Use = { cpu: 0, rss: 0, procs: 0 }
+const plus = (a: Use, p: Proc): Use => ({ cpu: a.cpu + p.cpu, rss: a.rss + p.rss, procs: a.procs + 1 })
+
+/** The machine's use, by owner. */
+export type MachineUse = {
+  workers: Record<string, Use>
+  jobs: Record<number, Use>
+  otherJobs: Use
+  shells: Use
+  tower: Use
+  rest: Use
+  total: Use
+}
+
+export const useOf = (procs: Map<number, Proc>, groups: Map<number, Owner>): MachineUse => {
+  const owners = ownersOf(procs, groups)
+  const u: MachineUse = { workers: {}, jobs: {}, otherJobs: NONE, shells: NONE, tower: NONE, rest: NONE, total: NONE }
+  for (const p of procs.values()) {
+    const o = owners.get(p.pid)!
+    u.total = plus(u.total, p)
+    if (o.t === 'worker') u.workers[o.session] = plus(u.workers[o.session] ?? NONE, p)
+    else if (o.t === 'job') u.jobs[o.n] = plus(u.jobs[o.n] ?? NONE, p)
+    else if (o.t === 'jobs') u.otherJobs = plus(u.otherJobs, p)
+    else u[o.t] = plus(u[o.t], p)
+  }
+  return u
+}
+
+/** Memory in bytes: the machine's, what is in use, and on macOS what the compressor holds of it. */
+export type Memory = { total: number; used: number; compressed?: number }
+
+const vmCount = (text: string, name: string): number => {
+  const m = new RegExp(`^${name}:\\s+(\\d+)\\.`, 'm').exec(text)
+  if (!m) throw new Error(`vm_stat says nothing of "${name}"`)
+  return Number(m[1])
+}
+
+/**
+ * macOS's memory in use as Activity Monitor counts it, from `vm_stat`: wired, held by the compressor, and the apps'
+ * own (anonymous pages less the purgeable ones). Free and cached pages are free to take, so they aren't in use.
+ */
+export const memoryOfVmStat = (text: string, total: number): Memory => {
+  const page = Number(/page size of (\d+) bytes/.exec(text)?.[1])
+  if (!page) throw new Error('vm_stat names no page size')
+  const compressed = vmCount(text, 'Pages occupied by compressor') * page
+  const app = (vmCount(text, 'Anonymous pages') - vmCount(text, 'Pages purgeable')) * page
+  return { total, used: vmCount(text, 'Pages wired down') * page + compressed + app, compressed }
+}
+
+/** Linux's memory in use, from `/proc/meminfo`: the total less what the kernel says is available. */
+export const memoryOfMeminfo = (text: string): Memory => {
+  const kib = (name: string) => {
+    const m = new RegExp(`^${name}:\\s+(\\d+) kB`, 'm').exec(text)
+    if (!m) throw new Error(`/proc/meminfo says nothing of ${name}`)
+    return Number(m[1]) * 1024
+  }
+  const total = kib('MemTotal')
+  return { total, used: total - kib('MemAvailable') }
+}
+
+/** Bytes in the unit that reads best: `512 MB`, `3.4 GB`. */
+export const bytesWords = (b: number): string =>
+  b >= 1e12 ? `${(b / 1e12).toFixed(1)} TB` : b >= 1e9 ? `${(b / 1e9).toFixed(b >= 1e10 ? 0 : 1)} GB` : `${Math.round(b / 1e6)} MB`
+
+/** CPU in cores: `0.3 cores`, `2.4 cores`, from ps's percent of one core. */
+export const coresWords = (cpu: number): string => `${(cpu / 100).toFixed(1)} cores`
+
+const useWords = (u: Use) => `${coresWords(u.cpu)}, ${bytesWords(u.rss)} in ${u.procs} ${u.procs === 1 ? 'process' : 'processes'}`
+
+/**
+ * The machine in lines, for `tower x compute machine`: its load, memory and disk, then who uses it, the heaviest
+ * workers and jobs by name (`names` gives a worker's callsign and floor, a job's number and label).
+ */
+export const machineLines = (
+  m: { cpus: number; load: [number, number, number]; memory?: Memory; disk: { path: string; total: number; free: number }; use: MachineUse },
+  names: { worker: (session: string) => string; job: (n: number) => string },
+): string[] => {
+  const top = <K>(rec: [K, Use][]) => rec.sort((a, b) => b[1].cpu - a[1].cpu || b[1].rss - a[1].rss).slice(0, 5)
+  const workers = Object.entries(m.use.workers)
+  const jobs = Object.entries(m.use.jobs).map(([n, u]) => [Number(n), u] as [number, Use])
+  const sum = (us: Use[]) => us.reduce((a, u) => ({ cpu: a.cpu + u.cpu, rss: a.rss + u.rss, procs: a.procs + u.procs }), NONE)
+  return [
+    `load ${m.load.map((v) => v.toFixed(1)).join(' · ')} over 1, 5 and 15 min, on ${m.cpus} cores (${Math.round((m.load[0] / m.cpus) * 100)}%)`,
+    m.memory ? `memory ${bytesWords(m.memory.used)} of ${bytesWords(m.memory.total)} in use${m.memory.compressed ? ` (${bytesWords(m.memory.compressed)} compressed)` : ''}` : 'memory: not read on this platform',
+    `disk ${bytesWords(m.disk.free)} free of ${bytesWords(m.disk.total)} (${m.disk.path})`,
+    `workers: ${useWords(sum(workers.map(([, u]) => u)))} across ${workers.length}`,
+    ...top(workers).map(([s, u]) => `  ${names.worker(s)}: ${useWords(u)}`),
+    `compute's jobs: ${useWords(sum(jobs.map(([, u]) => u)))}`,
+    ...top(jobs).map(([n, u]) => `  ${names.job(n)}: ${useWords(u)}`),
+    `other jobs: ${useWords(m.use.otherJobs)}`,
+    `the tower's shells: ${useWords(m.use.shells)}`,
+    `the tower itself: ${useWords(m.use.tower)}`,
+    `everything else: ${useWords(m.use.rest)}`,
+  ]
+}
