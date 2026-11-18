@@ -49,6 +49,9 @@ lanes 3 of 4 in use · 1 queued
 - `cancel <n>`: a queued job is withdrawn; a running one is cancelled in the jobs daemon (SIGTERM to its process group,
   SIGKILL 5 s later), then its cleanup runs and its requester is told.
 - `seen <n>`: takes a job off your list (below).
+- `machine`: the machine and who uses it, read when asked: the load against the cores, memory in use, the disk holding
+  your home folder, and every process's CPU and memory by owner, the heaviest workers and jobs by name. See
+  [Who uses the machine](#who-uses-the-machine).
 
 When a job is over, its cleanup runs, then its requester is told, in this order:
 
@@ -69,7 +72,8 @@ The line:
 
 ### The Compute page
 
-A renderer at `/r/compute/`, drawn from the board's `x.compute` (compute's board part) alone. It wears the look of
+A renderer at `/r/compute/`, drawn from the board (compute's own part, `x.compute`, and the tower's) and compute's
+`machine` read. It wears the look of
 [Lobby](https://github.com/fliptaboada/tower-renderer-lobby), the tower's macOS-style page: the jobs in a card set into
 the window, the system face, greys and a blue accent, light or dark as the tower's scheme is. Colour is kept for where a
 job stands: a job past its hours or on your list in red, a running one amber, one that exited 0 green, a queued or
@@ -77,6 +81,12 @@ withdrawn one grey.
 
 - **The top:** a **Tower** button back to the tower page, then each resource's units in use out of the machine's, as a row of lamps that turns red when it is full and
   jobs wait, and how many are queued. A floor picker and a tag filter, kept in the page's hash so a link keeps them.
+- **The machine,** a band of tiles over the jobs, so the queue is seen beside everything else that shares it, read
+  every 10 s while the page is in sight: the **Machine**'s CPU, memory and disk as gauges that turn amber, then red;
+  **Who uses it**, CPU and memory each a bar split by owner (workers, compute's jobs, other jobs, the tower's shells,
+  the tower itself, everything else); the **Heaviest** workers and jobs; the **Floors** by their workers' memory, with
+  how many are on duty; and every **Job** the jobs daemon runs, compute's or not, by who started it. Under 720 px the
+  tiles scroll sideways.
 - **The jobs,** in sections: on your list, running, queued, and over in the last day. Each row: its number, label,
   command and tags (a tag filters the page by it), who queued it and from which floor, where it stands (what a queued
   job waits for, a running one past its hours, how an over one ended and how its requester was told), how long it has
@@ -108,7 +118,8 @@ way. `contract.json` lists the names held at major 1: they only grow within it.
 
 ## Add it
 
-It needs the tower 2.0 or later and Node 24, and nothing else: it has no runtime dependencies.
+It needs the tower 2.10 or later (a job's `pid` on the board) and Node 24, and nothing else: it has no runtime
+dependencies.
 
 ```sh
 git clone git@github.com:agencyenterprise/tower-extension-compute.git
@@ -178,8 +189,27 @@ To update: `git pull` in your clone, then `tower extensions restart compute`, an
 - **The pure part** (`compute.ts`) holds what the facts mean, which jobs start, and the words. `server.ts` is the shell
   around it: the stream, the board, the jobs daemon, the prompts.
 
-Not yet here, in the order [docs/design.md](docs/design.md) gives: spend pools for paid API keys, disk and memory
-floors, a load read, holds and bumps, and a place in the tower page itself.
+### Who uses the machine
+
+The `machine` read is computed when asked and never stored; a read within 5 s of the last answers the last, so pages
+open together run `ps` once.
+
+- **Load, memory, disk.** The load averages against the cores. Memory in use as Activity Monitor counts it, from
+  `vm_stat` on macOS (wired, compressed, and programs' own pages less the purgeable ones), and from `/proc/meminfo` on
+  Linux (the total less what is available); Node's own free memory leaves out what caches hold and reads near zero on
+  a busy Mac. The disk is the one holding your home folder.
+- **By owner.** Two `ps` reads give every process's parent, process group, CPU and resident memory, and its
+  environment. A process is a compute job's when it carries `COMPUTE_JOB` or is in the group of a running job compute
+  started (a job's pid is its process group); another job's when it is in another running job's group; a worker's when
+  it carries `TOWER_SESSION_ID`, which every process a worker starts inherits, whatever its runtime; the tower's when it
+  is one of its daemons; a shell's when the terms daemon started it. Otherwise it is its parent's, so a program that
+  hides its environment (Apple's own binaries do) counts as whoever started it, and what is left is everything else.
+- **What the numbers are.** CPU is ps's percent of one core, an average over the last moments, shown in cores.
+  Memory is resident memory, which counts shared pages in each process and leaves out what the compressor holds, so the
+  owners' sum is not the memory in use.
+
+Not yet here, in the order [docs/design.md](docs/design.md) gives: spend pools for paid API keys, floors on memory and
+disk that hold starts back, holds and bumps, and a place in the tower page itself.
 
 ## Working on it
 

@@ -162,6 +162,52 @@ button.act.danger:hover { border-color: color-mix(in oklab, var(--needs) 60%, tr
 .filters input { width: 16em; max-width: 100%; }
 .filters input::placeholder { color: var(--faint); }
 
+/* ---- the machine and who uses it: a band of tiles over the jobs, each a small card in the window (usage.js) ---- */
+/* Each owner of processes in a colour of its own, none of attention's (amber, red, green): workers wear the accent. */
+:root { --s-workers: var(--accent); --s-jobs: #0b8a7f; --s-other: #7c3aed; --s-shells: #c2185b; --s-tower: #6b7280; --s-rest: color-mix(in oklab, var(--ink) 16%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-scheme='light']) { --s-jobs: #2dd4bf; --s-other: #a78bfa; --s-shells: #f472b6; --s-tower: #9ca3af; } }
+:root[data-scheme='dark'] { --s-jobs: #2dd4bf; --s-other: #a78bfa; --s-shells: #f472b6; --s-tower: #9ca3af; }
+.s-workers { --s: var(--s-workers); } .s-jobs { --s: var(--s-jobs); } .s-other { --s: var(--s-other); }
+.s-shells { --s: var(--s-shells); } .s-tower { --s: var(--s-tower); } .s-rest { --s: var(--s-rest); }
+.usage { flex: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-m); margin: 0 var(--sp-m) var(--sp-m); }
+.usage:empty { display: none; }
+.tile { min-width: 0; padding: var(--sp-m) var(--sp-l); background: var(--panel); border-radius: var(--radius-l); box-shadow: var(--card-shadow); font-size: var(--fs-s); }
+.tile.wide { grid-column: span 2; }
+.tile small { color: var(--faint); font-size: var(--fs-xs); font-weight: 400; }
+/* Who uses it: a bar each for CPU and memory, split by owner, over a legend with each owner's figures. */
+.bars { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--sp-xs) var(--sp-s); margin: var(--sp-2xs) 0 var(--sp-s); color: var(--muted); font-weight: 500; }
+.split { display: flex; gap: 2px; height: 10px; }
+.split i { min-width: 2px; border-radius: 2px; background: var(--s); }
+.legend { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.legend li { display: grid; grid-template-columns: 10px minmax(0, 1fr) 2.5em 4.2em; align-items: center; gap: var(--sp-s); }
+.legend li.head { color: var(--faint); font-size: var(--fs-xs); }
+.legend .key { width: 10px; height: 10px; border-radius: 3px; background: var(--s); }
+.legend .n { text-align: right; font-variant-numeric: tabular-nums; }
+.legend li:not(.head) .n { font-weight: 600; }
+.tile h3 { margin: 0 0 var(--sp-xs); color: var(--faint); font: 600 var(--fs-xs)/1.3 var(--ui); }
+.tile .sub { margin: var(--sp-xs) 0 0; color: var(--muted); }
+.tile .sub.warm { color: var(--working-text); }
+.tile .sub.hot { color: var(--needs-text); }
+.fig { display: inline-flex; align-items: baseline; gap: var(--sp-xs); }
+.fig b { font: 700 var(--fs-xl)/1.15 var(--display); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.fig span { color: var(--faint); }
+/* Floors: each floor's workers' memory, the floor using most full, its workers on duty beside its name. */
+.floors { display: grid; gap: var(--sp-xs); margin: var(--sp-2xs) 0 0; padding: 0; list-style: none; }
+.floors li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-s); }
+.floors li .n { font-weight: 600; font-variant-numeric: tabular-nums; }
+.floors li.more { display: block; color: var(--faint); }
+.floors .gauge i { background: var(--s); }
+/* A gauge: how much of the cores, the memory or the disk is used, accent until it runs warm, then hot. */
+.gauges { display: grid; gap: var(--sp-s); margin: var(--sp-2xs) 0 0; padding: 0; list-style: none; }
+.gauges li { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--sp-s); }
+.gauges li span:first-child { font-weight: 500; }
+.gauges li .n { font-weight: 600; font-variant-numeric: tabular-nums; }
+.gauges li small { color: var(--faint); font-size: var(--fs-xs); font-weight: 400; }
+.gauge { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: color-mix(in oklab, var(--ink) 10%, transparent); overflow: hidden; }
+.gauge i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.gauges li.warm .gauge i { background: var(--working); } .gauges li.warm .n { color: var(--working-text); }
+.gauges li.hot .gauge i { background: var(--needs); } .gauges li.hot .n { color: var(--needs-text); }
+
 /* ---- the jobs: a card set into the window, flat rows in sections ---- */
 main { flex: 1; min-height: 0; overflow-y: auto; margin: 0 var(--sp-m); padding: var(--sp-l) var(--sp-xl); background: var(--panel); border-radius: var(--radius-l); box-shadow: var(--card-shadow); }
 section { margin-bottom: var(--sp-xl); }
@@ -228,6 +274,10 @@ section h2 .count { color: var(--faint); font: 500 var(--fs-s)/1 var(--ui); font
 @media (max-width: 720px) {
   .top { padding: var(--sp-m) var(--sp-l) var(--sp-s); }
   main { margin: 0 var(--sp-s); padding: var(--sp-m) var(--sp-l); }
+  /* The tiles in a row that scrolls sideways, so the jobs keep the height. */
+  .usage { display: flex; align-items: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 var(--sp-s) var(--sp-s); padding-bottom: 2px; }
+  .tile { flex: 0 0 min(80vw, 260px); scroll-snap-align: start; }
+  .tile.wide { flex-basis: min(88vw, 340px); }
   .screen { margin: var(--sp-s) var(--sp-s) 0; }
   .filters { margin-left: 0; }
   .jobs, .jobs tbody, .jobs tr, .jobs td { display: block; width: auto; }

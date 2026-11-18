@@ -9,6 +9,7 @@ import { esc } from '/lib/words.js'
 import { loadTerminalFont, mountTermView, SHELL_SCROLLBACK, terminalFont } from '/lib/terminal.js'
 import { copyText, ICON } from '/lib/view.js'
 import { watchTips } from '/lib/chrome.js'
+import { usageHtml } from './usage.js'
 
 /**
  * @typedef {{ n: number, label: string, argv: string[], cwd: string, project: string, by: string, callsign?: string,
@@ -21,7 +22,7 @@ import { watchTips } from '/lib/chrome.js'
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id))
 
-/** @type {{ board?: any, screen?: { n: number, close: () => void } }} */
+/** @type {{ board?: any, machine?: import('./usage.js').Machine | { failed: string }, screen?: { n: number, close: () => void } }} */
 const state = {}
 
 // ---------- the filters, in the hash ----------
@@ -150,6 +151,7 @@ const sectionHtml = (/** @type {string} */ title, /** @type {Job[]} */ jobs, /**
 const draw = () => {
   const board = state.board
   if (!board) return
+  $('usage').innerHTML = usageHtml(board, board.x?.compute ? state.machine : { failed: 'Compute isn’t running: nothing reads the machine.' })
   /** @type {Compute | undefined} */
   const c = board.x?.compute
   if (!c) {
@@ -336,3 +338,19 @@ tower.subscribe((board) => {
 })
 // Elapsed times move between boards.
 setInterval(draw, 30_000)
+
+/** The machine and who uses it, compute's read: it isn't on the board, so the page reads it every 10 s while in sight. */
+const readMachine = async () => {
+  if (document.hidden || !state.board?.x?.compute) return
+  try {
+    state.machine = /** @type {import('./usage.js').Machine} */ (/** @type {unknown} */ (await tower.get(/** @type {any} */ ('compute/machine'))))
+  } catch (err) {
+    state.machine = { failed: `The machine can't be read: ${/** @type {Error} */ (err).message}` }
+  }
+  draw()
+}
+setInterval(readMachine, 10_000)
+document.addEventListener('visibilitychange', () => void readMachine())
+tower.subscribe(() => {
+  if (state.machine === undefined) void readMachine()
+})
