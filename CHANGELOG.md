@@ -8,6 +8,13 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.7] - 2026-11-18
+
+### Fixed
+- A card's CPU sparkline no longer shows a grey band spilling past the card's edge when pointed at near its end: each
+  reading's band now runs halfway to its neighbours and stays inside the chart. Its readings show the tower's own
+  tooltip, as everything else on the page does, instead of the browser's.
+
 ## [1.6] - 2026-11-18
 
 ### Added
@@ -82,7 +89,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.6...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.7...HEAD
+[1.7]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.6...v1.7
 [1.6]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.5...v1.6
 [1.5]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.4...v1.5
 [1.4]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.3...v1.4
