@@ -7,6 +7,15 @@ import {
   jobLine,
   listed,
   listTitle,
+  diskTone,
+  loadTone,
+  memoryOfMeminfo,
+  memoryOfVmStat,
+  memoryTone,
+  jobGroups,
+  ownersOf,
+  parseProcs,
+  useOf,
   recent,
   resumeText,
   nextStarts,
@@ -203,4 +212,97 @@ test('what is worth showing: live jobs, listed ones, and the last day of the res
     recent(views(facts, [], now), now).map((v) => v.label),
     ['old, never told', 'fresh'],
   )
+})
+
+test('the load tone turns at 70% of the cores and past 100%', () => {
+  assert.equal(loadTone(6.9, 10), 'calm')
+  assert.equal(loadTone(7, 10), 'busy')
+  assert.equal(loadTone(10, 10), 'busy')
+  assert.equal(loadTone(10.1, 10), 'over')
+})
+
+// A machine in miniature, as the two ps reads give it: launchd, the tower's daemons, a worker's claude and a shell it
+// ran (Apple's /bin/sh hides its environment), compute's job #7 led by /bin/bash (hidden too), its python, and a
+// child that left the group; another job; a shell in the terms daemon; and Safari.
+const PS_STATS = [
+  '    1     0     1   0.0  10000',
+  '  100     1   100   1.0  40000',
+  '  101     1   101   0.5  30000',
+  '  102     1   102   0.2  30000',
+  '  103     1   103  20.0 300000',
+  '  200   100   200  50.0 500000',
+  '  201   200   201  80.0 100000',
+  '  202   201   201  10.0   1000',
+  '  300   102   300   1.0   3000',
+  '  301   300   300 100.0 200000',
+  '  303   301   303  50.0  50000',
+  '  302   102   302   5.0   2000',
+  '  400   101   400   1.0   4000',
+  '  500     1   500  30.0 900000',
+  '  600   103   103   0.0   1000',
+].join('\n')
+const PS_MARKED = [
+  '    1 /sbin/launchd',
+  '  100 node --import file:///t/src/dated-log.ts /t/src/host/main.ts PATH=/bin HOME=/u',
+  '  101 node --import file:///t/src/dated-log.ts /t/src/terms/main.ts PATH=/bin',
+  '  102 node --import file:///t/src/dated-log.ts /t/src/jobs/main.ts PATH=/bin',
+  '  103 node --import file:///t/src/dated-log.ts /t/src/tower/server.ts PATH=/bin',
+  '  200 claude --name ADA-23 PATH=/bin TOWER_SESSION_ID=20261118-0001-aaaa TERM=xterm',
+  '  201 npm test TOWER_SESSION_ID=20261118-0001-aaaa',
+  '  202 /bin/sh -c ls',
+  '  300 /bin/bash ./train.sh',
+  '  301 python train.py COMPUTE_JOB=7',
+  '  303 /usr/bin/caffeinate',
+  '  302 make docs PATH=/bin',
+  '  400 -zsh PATH=/bin',
+  '  500 /Applications/Safari.app/Contents/MacOS/Safari',
+  '  600 ps -A -o pid=,ppid=,pgid=,pcpu=,rss=',
+  '  700 gone between the reads',
+].join('\n')
+
+test('each process counts for its worker, its job, the tower or the rest, a hidden one by its group or its parent', () => {
+  const procs = parseProcs(PS_STATS, PS_MARKED)
+  assert.equal(procs.has(700), false)
+  assert.deepEqual(procs.get(201), { pid: 201, ppid: 200, pgid: 201, cpu: 80, rss: 100000 * 1024, session: '20261118-0001-aaaa' })
+  const groups = jobGroups(
+    [
+      { id: 'job-a', pid: 300, state: 'running' },
+      { id: 'job-b', pid: 302, state: 'running' },
+      { id: 'job-c', pid: 299, state: 'ended' },
+    ],
+    views([[1, 'j', job()], [2, 'o', { n: 1, job: 'job-a' }]]).map((v) => ({ ...v, n: 7 })),
+  )
+  assert.deepEqual([...groups], [[300, { t: 'job', n: 7 }], [302, { t: 'jobs' }]])
+  const owners = ownersOf(procs, groups)
+  assert.deepEqual(owners.get(202), { t: 'worker', session: '20261118-0001-aaaa' })
+  assert.deepEqual(owners.get(300), { t: 'job', n: 7 })
+  assert.deepEqual(owners.get(303), { t: 'job', n: 7 })
+  assert.deepEqual(owners.get(302), { t: 'jobs' })
+  assert.deepEqual(owners.get(400), { t: 'shells' })
+  assert.deepEqual(owners.get(600), { t: 'tower' })
+  assert.deepEqual(owners.get(500), { t: 'rest' })
+  const use = useOf(procs, groups)
+  assert.deepEqual(use.workers, { '20261118-0001-aaaa': { cpu: 140, rss: 601000 * 1024, procs: 3 } })
+  assert.deepEqual(use.jobs, { 7: { cpu: 151, rss: 253000 * 1024, procs: 3 } })
+  assert.equal(use.tower.procs, 5)
+  assert.equal(use.rest.procs, 2)
+  assert.equal(use.total.procs, 15)
+})
+
+test("macOS memory in use is Activity Monitor's: wired, compressed and the apps' own", () => {
+  const vm = [
+    'Mach Virtual Memory Statistics: (page size of 16384 bytes)',
+    'Pages free:                                    19725.',
+    'Pages wired down:                             311637.',
+    'Pages purgeable:                               27408.',
+    'Anonymous pages:                              787910.',
+    'Pages occupied by compressor:                 907847.',
+  ].join('\n')
+  const m = memoryOfVmStat(vm, 38654705664)
+  assert.equal(m.used, (311637 + 907847 + 787910 - 27408) * 16384)
+  assert.equal(m.compressed, 907847 * 16384)
+  assert.equal(memoryTone(m.used, m.total), 'busy')
+  assert.throws(() => memoryOfVmStat('Mach Virtual Memory Statistics: (page size of 16384 bytes)', 1), /Pages occupied by compressor/)
+  assert.deepEqual(memoryOfMeminfo('MemTotal:       16000000 kB\nMemFree:  1 kB\nMemAvailable:    4000000 kB\n'), { total: 16000000 * 1024, used: 12000000 * 1024 })
+  assert.equal(diskTone(15e9, 994e9), 'over')
 })

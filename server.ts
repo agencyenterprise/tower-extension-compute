@@ -7,8 +7,11 @@
  * What it decides is pure and lives in `compute.ts`. Here: reading the stream and the board, the jobs daemon, the
  * prompts and resumes, the verbs, the read and the board's part.
  */
-import { statSync } from 'node:fs'
+import { execFile } from 'node:child_process'
+import { readFileSync, statfsSync, statSync } from 'node:fs'
+import { availableParallelism, homedir, loadavg, totalmem } from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { callOf, type Board, type Card } from '/lib/board.js'
 import { apiError, isApiError, type Ask, type CallCtx, type FoldCtx, type Part, type Reduce, type Start, type StartCtx } from '/lib/extension.js'
 import {
@@ -17,6 +20,12 @@ import {
   jobLine,
   listed,
   listTitle,
+  diskTone,
+  loadTone,
+  machineLines,
+  memoryOfMeminfo,
+  memoryOfVmStat,
+  memoryTone,
   nextStarts,
   pairsOf,
   plainJob,
@@ -27,11 +36,18 @@ import {
   unrunnable,
   untold,
   usedOf,
+  useOf,
+  jobGroups,
+  parseProcs,
   viewsOf,
+  type MachineUse,
+  type Memory,
+  type Owner,
   type QueueFact,
   type QueueFacts,
   type QueuedFact,
   type ToldFact,
+  type Use,
   type View,
 } from './compute.ts'
 
@@ -53,6 +69,55 @@ const cardOfSession = (cards: Card[], session: string): Card | undefined =>
   cards.filter((c) => c.lineage.some((l) => l.id === session)).sort((a, b) => b.enteredAt - a.enteredAt)[0]
 
 const boardCards = (board: Board): Card[] => board.floors.flatMap((f) => f.cards)
+
+const exec = promisify(execFile)
+/** ps with the environment, macOS's flag or procps's. */
+const PS_ENV = process.platform === 'darwin' ? '-E' : 'e'
+/** Every process's environment runs to megabytes. */
+const PS_BUFFER = 64 * 1024 * 1024
+/** A read within this long of the last answers the last: pages open together read ps once. */
+const MACHINE_FRESH_MS = 5000
+
+type Machine = { at: number; cpus: number; load: [number, number, number]; memory?: Memory; disk: { path: string; total: number; free: number }; use: MachineUse }
+
+/** Memory as the platform says it: vm_stat on macOS, /proc/meminfo on Linux, none elsewhere. */
+const memoryNow = async (): Promise<Memory | undefined> => {
+  if (process.platform === 'darwin') return memoryOfVmStat((await exec('vm_stat')).stdout, totalmem())
+  if (process.platform === 'linux') return memoryOfMeminfo(readFileSync('/proc/meminfo', 'utf8'))
+  return undefined
+}
+
+/**
+ * The machine as it is now: load, memory, the disk holding the home folder, and every process's CPU and memory by
+ * owner (`groups`: the running jobs' process groups). Read when asked, kept only to answer reads within a few seconds
+ * of it, never stored.
+ */
+let lastMachine: Promise<Machine> | undefined
+let lastMachineAt = 0
+const machineNow = (groups: Map<number, Owner>): Promise<Machine> => {
+  if (lastMachine && Date.now() - lastMachineAt < MACHINE_FRESH_MS) return lastMachine
+  lastMachineAt = Date.now()
+  lastMachine = (async () => {
+    const [stats, marked, memory] = await Promise.all([
+      exec('ps', ['-A', '-o', 'pid=,ppid=,pgid=,pcpu=,rss=']),
+      exec('ps', ['-A', '-ww', PS_ENV, '-o', 'pid=,command='], { maxBuffer: PS_BUFFER }),
+      memoryNow(),
+    ])
+    const home = homedir()
+    const fs = statfsSync(home)
+    const [one, five, fifteen] = loadavg()
+    return {
+      at: lastMachineAt,
+      cpus: availableParallelism(),
+      load: [one, five, fifteen],
+      ...(memory && { memory }),
+      disk: { path: home, total: fs.blocks * fs.bsize, free: fs.bavail * fs.bsize },
+      use: useOf(parseProcs(stats.stdout, marked.stdout), groups),
+    }
+  })()
+  lastMachine.catch(() => (lastMachine = undefined))
+  return lastMachine
+}
 
 /** What telling a requester came to: told (perhaps by resuming it), not told and why, or to try again next round. */
 type Telling = Pick<ToldFact, 'to' | 'resumed' | 'failed'> | 'retry'
@@ -277,6 +342,42 @@ const start: Start = (ctx: StartCtx) => {
           used: usedOf(views),
           jobs: shown.map((v) => plainJob(v, now)),
           lines: [resourcesLine(views, resources), ...(shown.length ? shown.map((v) => jobLine(v, views, resources, now)) : ['No job to show.'])],
+        }
+      },
+      machine: async () => {
+        const board = ctx.board()
+        const views = viewsNow(board)
+        const m = await machineNow(jobGroups(board.jobs, views))
+        const cards = boardCards(board)
+        const worker = (session: string) => {
+          const card = cardOfSession(cards, session)
+          return card ? { callsign: card.callsign, project: card.project } : {}
+        }
+        const label = (n: number) => views[n - 1]?.label
+        const byUse = (a: Use, b: Use) => b.cpu - a.cpu || b.rss - a.rss
+        return {
+          ...m,
+          tones: {
+            load: loadTone(m.load[0], m.cpus),
+            ...(m.memory && { memory: memoryTone(m.memory.used, m.memory.total) }),
+            disk: diskTone(m.disk.free, m.disk.total),
+          },
+          use: {
+            ...m.use,
+            workers: Object.entries(m.use.workers)
+              .sort(([, a], [, b]) => byUse(a, b))
+              .map(([session, u]) => ({ session, ...worker(session), ...u })),
+            jobs: Object.entries(m.use.jobs)
+              .sort(([, a], [, b]) => byUse(a, b))
+              .map(([n, u]) => ({ n: Number(n), ...(label(Number(n)) !== undefined && { label: label(Number(n)) }), ...u })),
+          },
+          lines: machineLines(m, {
+            worker: (s) => {
+              const w = worker(s)
+              return w.callsign ? `${w.callsign} on ${w.project}` : `a worker gone from the board (${s})`
+            },
+            job: (n) => `#${n}${label(n) ? ` ${label(n)}` : ''}`,
+          }),
         }
       },
     },

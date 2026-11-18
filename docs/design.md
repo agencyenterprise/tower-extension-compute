@@ -24,7 +24,7 @@ each crew ran them as background processes of a worker's own session. That had f
 | Telegram notices | The owner learns a job started and ended | Kept as a line at the requester's prompt, the requester resumed when it isn't running, and the user's list when it can't be found |
 | Menu bar app, queue panel | The owner sees the queue and what runs, and stops a job | Kept as the Compute page: the queue, a lane meter, a job's live screen, Cancel and Seen |
 | Memory guard, disk guard, janitor | A small machine that agents ran out of memory and disk | Planned: start floors and stop floors (below) |
-| Load meter in the menu bar | The owner sees what the lab does with the machine | Planned: a load read the tower's pages draw |
+| Load meter in the menu bar | The owner sees what the lab does with the machine | Kept as the `machine` read and the Compute page's tiles: load, memory and disk, and who uses them, worker by worker and job by job |
 | Off / on / until 08:00, pause for a game | The owner's laptop, lent on the owner's terms | Planned: holds, of the machine or of one tag |
 | Per-room API budget, shared spend ledger, guard at the cap | A maxed card, spent by programs that can't see each other | Planned: spend pools (below) |
 | "Heavy" thresholds, honest estimates, disclosure | Rules the code can't decide | Left to whoever uses compute: the lab's playbooks say them |
@@ -33,8 +33,9 @@ each crew ran them as background processes of a worker's own session. That had f
 
 From the tower's [principles](https://github.com/RegiByte/the-tower/blob/main/PRINCIPLES.md):
 
-- **Extension before core.** Everything compute needs is already in the tower: `ctx.jobs`, the board's `jobs`,
-  system streams, `tower/submit`. The core doesn't change.
+- **Extension before core.** Everything compute needs is in the tower: `ctx.jobs`, the board's `jobs`, system
+  streams, `tower/submit`. The one thing it asked of the core is general: each job's `pid` on the board (2.10), which
+  the jobs log already held, so any page can find what a job runs.
 - **Observe, don't store.** The queue stores what was asked and what compute did. Where a job stands is the jobs log's.
 - **Open systems first.** Compute knows nothing of missions, Docker or any provider. Resources are named by the
   config, tags and caps group jobs for whoever calls, and cleanup is a command the job names.
@@ -50,10 +51,10 @@ In order, each small enough to build alone:
    between readings with `spent`, since a provider's usage figure can lag real spend by minutes. At the limit, or
    after a run of failed reads, a pool always stops new starts and asks the user. It cancels running jobs only when
    `atLimit` says `cancel`.
-2. **The machine's floors and load.** A `load` read, computed when asked and never stored: free memory and disk, units
-   in use, CPU per running job by its process group, and jobs started outside the queue. Start floors keep a job from
-   starting below a free memory or disk level. Stop floors cancel the newest job compute started below a lower one, a
-   fact saying why.
+2. **The machine's floors.** The `machine` read is here: load, memory and disk, and CPU and memory by owner, a job by
+   its process group and a worker by its session's mark, computed when asked and never stored. Next, start floors keep
+   a job from starting below a free memory or disk level, and stop floors cancel the newest job compute started below a
+   lower one, a fact saying why.
 3. **Holds and bumps.** `hold [--tag k=v] [--until <time>]` and `release` stop starts for the machine or one group,
    and never stop running jobs. `bump <n>` moves a queued job to the front.
 4. **A place in the tower page.** The Compute page (`/r/compute/`) holds the queue, the meter and the controls for now,

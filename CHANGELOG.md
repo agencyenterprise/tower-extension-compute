@@ -8,6 +8,16 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+### Added
+- `tower x compute machine` (the read `compute/machine`): the machine's load, memory and disk, and every process's CPU
+  and memory by owner: each worker, whatever its runtime, each compute job, other jobs, the tower's shells, the tower
+  itself and everything else.
+- The Compute page shows the machine over the queue, a band of tiles: CPU, memory and disk; who uses them; the
+  heaviest workers and jobs; each floor's workers; and every job in the jobs daemon by who started it.
+
+### Changed
+- Compute needs the tower 2.10, for each job's `pid` on the board: a job's processes are found by its process group.
+
 ## [1.3] - 2026-11-17
 
 ### Fixed
