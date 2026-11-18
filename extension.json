@@ -1,9 +1,10 @@
 {
   "id": "compute",
-  "version": "1.4",
+  "version": "1.5",
   "title": "Compute",
   "description": "A queue for long or heavy commands on the machine the tower runs on: each runs in the jobs daemon once the machine's named resources (lanes, a GPU…) have room for it, oldest first, and whoever queued it is told when it is over.",
-  "requires": { "tower": "2.10" },
+  "requires": { "tower": "2.13" },
+  "renderers": { "compute": { "root": "renderer" } },
   "server": "server.ts",
   "settings": {
     "type": "object",

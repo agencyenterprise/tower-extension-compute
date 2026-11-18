@@ -58,7 +58,7 @@ In order, each small enough to build alone:
 3. **Holds and bumps.** `hold [--tag k=v] [--until <time>]` and `release` stop starts for the machine or one group,
    and never stop running jobs. `bump <n>` moves a queued job to the front.
 4. **A place in the tower page.** The Compute page (`/r/compute/`) holds the queue, the meter and the controls for now,
-   a renderer of its own while the rest of the tower's integration is thought through: a meter in the tower page's
+   a renderer of its own, declared in the manifest, while the rest of the tower's integration is thought through: a meter in the tower page's
    header, the queue as a view in its panes. Everything it draws is in `board.x.compute` and everything it does is a
    compute verb, so that move is a second client, not a rewrite.
 

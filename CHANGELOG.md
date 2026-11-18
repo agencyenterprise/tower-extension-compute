@@ -8,6 +8,13 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.5] - 2026-11-18
+
+### Changed
+- Compute declares its page in its manifest (`renderers.compute`, the `renderer/` folder), so `/r/compute/` comes with
+  the extension: delete `renderers.compute` from `~/.tower/config.json` and keep `extensions.compute.path`.
+- Compute needs the tower 2.13, for a renderer declared in the manifest.
+
 ## [1.4] - 2026-11-18
 
 ### Added

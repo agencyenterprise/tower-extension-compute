@@ -18,7 +18,7 @@ npm run types && npm run typecheck && npm test && npm run check
 ```
 
 Then on a tower checkout's sandbox, never the user's tower: `npm run sandbox -- up` there, point the sandbox config's
-`extensions.compute.path` (and `renderers.compute.root`, for the page) at your clone, and drive it with
+`extensions.compute.path` at your clone (the page comes with it: the manifest declares `renderers.compute`), and drive it with
 `npm run -s sandbox -- run …` and `npm run drive -- <url>/r/compute/ --shot …`. A page change gets light, dark and a
 narrow width (about 700px); read every shot, and put the ones that back what you report in the PR. The page's foot
 should say the version you are about to release.
