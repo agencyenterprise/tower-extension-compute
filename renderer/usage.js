@@ -20,10 +20,10 @@ import { esc, plural } from '/lib/words.js'
 const TONE_CLASS = { calm: '', busy: 'warm', over: 'hot' }
 
 /** Bytes in the unit that reads best. */
-const bytes = (/** @type {number} */ b) => (b >= 1e12 ? `${(b / 1e12).toFixed(1)} TB` : b >= 1e9 ? `${(b / 1e9).toFixed(b >= 1e10 ? 0 : 1)} GB` : `${Math.round(b / 1e6)} MB`)
+export const bytes = (/** @type {number} */ b) => (b >= 1e12 ? `${(b / 1e12).toFixed(1)} TB` : b >= 1e9 ? `${(b / 1e9).toFixed(b >= 1e10 ? 0 : 1)} GB` : `${Math.round(b / 1e6)} MB`)
 const processes = (/** @type {number} */ n) => `${n} ${n === 1 ? 'process' : 'processes'}`
 /** ps's percent of one core, in cores. */
-const cores = (/** @type {number} */ cpu) => `${(cpu / 100).toFixed(1)}`
+export const cores = (/** @type {number} */ cpu) => `${(cpu / 100).toFixed(1)}`
 
 const tile = (/** @type {string} */ title, /** @type {string} */ body, /** @type {string} */ cls = '') =>
   `<article class="tile${cls ? ` ${cls}` : ''}"><h3>${esc(title)}</h3>${body}</article>`

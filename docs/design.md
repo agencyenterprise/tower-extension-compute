@@ -38,7 +38,9 @@ From the tower's [principles](https://github.com/RegiByte/the-tower/blob/main/PR
   the jobs log already held, so any page can find what a job runs.
 - **Observe, don't store.** The queue stores what was asked and what compute did. Where a job stands is the jobs log's.
 - **Open systems first.** Compute knows nothing of missions, Docker or any provider. Resources are named by the
-  config, tags and caps group jobs for whoever calls, and cleanup is a command the job names.
+  config, tags and caps group jobs for whoever calls, and cleanup is a command the job names. The page groups jobs by
+  any tag; only it, never the server, reads the lab's part of the board, and only to name a mission and count its
+  crew when the lab runs.
 - **No credentials in the config.** A job reads its own keys. A pool's probe (below) is a command that holds its key.
 
 ## Next

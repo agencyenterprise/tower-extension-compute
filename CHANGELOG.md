@@ -8,6 +8,22 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.6] - 2026-11-18
+
+### Added
+- The Compute page groups the jobs by a tag: a **Group by** picker beside the filters, kept in the page's hash. Each
+  value of the tag is a card: its CPU and memory now as bars against the machine's, the lanes it holds as lamps, its
+  cap's slots, its CPU over the last minutes as a sparkline, and a dot per job in the colour of where it stands.
+  Pressing a card's name shows only its jobs.
+- With the lab running, the page groups by mission unless told otherwise: each open mission is a card, with its title,
+  floor, playbook and coordinator, its phases as a stepper, a **Room** button to its room on the Lab page, and its
+  crew. Its bars add its crew's processes to its jobs', in two colours, so the card shows what the whole mission uses
+  now. A closed mission shows only while jobs of it do. Without the lab, nothing changes until you pick a tag.
+
+### Changed
+- The teal of Compute's jobs and, in the dark scheme, the blue of workers are a step stronger, so the two tell apart
+  for every reader.
+
 ## [1.5] - 2026-11-18
 
 ### Changed
@@ -66,7 +82,9 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.4...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.6...HEAD
+[1.6]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.5...v1.6
+[1.5]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.4...v1.5
 [1.4]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.3...v1.4
 [1.3]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.2...v1.3
 [1.2]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.1...v1.2

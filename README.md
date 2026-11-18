@@ -80,13 +80,28 @@ job stands: a job past its hours or on your list in red, a running one amber, on
 withdrawn one grey.
 
 - **The top:** a **Tower** button back to the tower page, then each resource's units in use out of the machine's, as a row of lamps that turns red when it is full and
-  jobs wait, and how many are queued. A floor picker and a tag filter, kept in the page's hash so a link keeps them.
+  jobs wait, and how many are queued. A floor picker, a **Group by** picker and a tag filter, kept in the page's hash so a link keeps them.
 - **The machine,** a band of tiles over the jobs, so the queue is seen beside everything else that shares it, read
   every 10 s while the page is in sight: the **Machine**'s CPU, memory and disk as gauges that turn amber, then red;
   **Who uses it**, CPU and memory each a bar split by owner (workers, compute's jobs, other jobs, the tower's shells,
   the tower itself, everything else); the **Heaviest** workers and jobs; the **Floors** by their workers' memory, with
   how many are on duty; and every **Job** the jobs daemon runs, compute's or not, by who started it. Under 720 px the
   tiles scroll sideways.
+- **By a tag,** when **Group by** names one: a card per value of the tag. Its **CPU** and **Memory** now, each a bar
+  against the whole machine's; the units of each resource its running jobs hold, as lamps out of the machine's; its
+  cap's **Slots**, filled by its running jobs; its CPU over the last minutes as a sparkline (hover a point for its
+  reading); a dot per job in the colour of where it stands, with the counts and how long its jobs ran. Pressing its
+  name filters the jobs to it. Compute gives the tag no meaning.
+- **Missions,** when the [lab](https://github.com/agencyenterprise/tower-extension-lab) runs: the page groups by its
+  `mission` tag unless **Group by** says otherwise (the section marked **Lab** beside its title, the picker's
+  option `mission · lab`), and each card takes what the lab's part of the board says of its
+  mission: its title, floor, playbook and coordinator, its phases as a stepper, a **Room** button to it on the Lab
+  page, and its crew, heaviest first. Its bars count its crew's processes (the workers of its floor by callsign) with
+  its jobs', teal for the jobs and blue for the crew, so a card shows what the whole mission uses now. Every open
+  mission has a card, even with no job; a closed one only while jobs of it are shown. Without the lab, the page shows
+  no group until **Group by** names a tag.
+- The readings are of now, never stored: the sparkline is what the page itself has read while open, and starts again
+  on a reload. What a mission used over its life is not kept.
 - **The jobs,** in sections: on your list, running, queued, and over in the last day. Each row: its number, label,
   command and tags (a tag filters the page by it), who queued it and from which floor, where it stands (what a queued
   job waits for, a running one past its hours, how an over one ended and how its requester was told), how long it has

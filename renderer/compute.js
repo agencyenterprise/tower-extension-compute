@@ -3,13 +3,16 @@
  * folds. It draws, and acts only through compute's verbs (`compute/cancel`, `compute/seen`): a worker or any other page
  * can do all it does. A job's screen opens at the page's foot, read only, from the tower's `job/<id>/screen` stream.
  *
- * The filters (a floor, a tag) live in the hash, so a link keeps them.
+ * The filters (a floor, a tag) and the tag the jobs are grouped by live in the hash, so a link keeps them. Grouping is by
+ * `mission` when the lab runs and the hash says nothing of it (groups.js).
  */
 import { esc } from '/lib/words.js'
 import { loadTerminalFont, mountTermView, SHELL_SCROLLBACK, terminalFont } from '/lib/terminal.js'
 import { copyText, ICON } from '/lib/view.js'
 import { watchTips } from '/lib/chrome.js'
 import { usageHtml } from './usage.js'
+import { groupTag, groupsOf, labMissions, labRuns, tagNames } from './groups.js'
+import { groupsSection, recordReadings } from './groupview.js'
 
 /**
  * @typedef {{ n: number, label: string, argv: string[], cwd: string, project: string, by: string, callsign?: string,
@@ -27,20 +30,25 @@ const state = {}
 
 // ---------- the filters, in the hash ----------
 
+/**
+ * @typedef {{ floor: string, tag: string, group: string | null }} Filters `group`: the tag the jobs are grouped by, '' for
+ *   none; null when the hash says nothing, which groups by `mission` while the lab runs.
+ */
 const filtersOf = () => {
   const q = new URLSearchParams(location.hash.slice(1))
-  return { floor: q.get('floor') ?? '', tag: q.get('tag') ?? '' }
+  return /** @type {Filters} */ ({ floor: q.get('floor') ?? '', tag: q.get('tag') ?? '', group: q.get('group') })
 }
-const setFilters = (/** @type {{ floor: string, tag: string }} */ f) => {
+const setFilters = (/** @type {Filters} */ f) => {
   const q = new URLSearchParams()
   if (f.floor) q.set('floor', f.floor)
   if (f.tag) q.set('tag', f.tag)
+  if (f.group !== null) q.set('group', f.group)
   history.replaceState(null, '', q.size ? `#${q}` : location.pathname)
   draw()
 }
 
 /** Whether a job passes the filters: its floor, and a tag it carries (`name=value`, or a word any of its tags hold). */
-const shown = (/** @type {Job} */ j, /** @type {{ floor: string, tag: string }} */ f) => {
+const shown = (/** @type {Job} */ j, /** @type {Filters} */ f) => {
   if (f.floor && j.project !== f.floor) return false
   const t = f.tag.trim()
   if (!t) return true
@@ -148,6 +156,23 @@ const sectionHtml = (/** @type {string} */ title, /** @type {Job[]} */ jobs, /**
     }
   </section>`
 
+/**
+ * The groups of the jobs by `tag` (groups.js): with the lab's missions on the floors the filter keeps when the tag is
+ * `mission` and the lab runs, and the machine's use when it was read.
+ */
+const groupsNow = (/** @type {string} */ tag, /** @type {Job[]} */ jobs, /** @type {Filters} */ f) => {
+  const missions = labRuns(state.board) && tag === 'mission' ? labMissions(state.board).filter((m) => !f.floor || m.project === f.floor) : undefined
+  const machine = state.machine && !('failed' in state.machine) ? state.machine : undefined
+  return { missions, machine, groups: groupsOf(jobs, tag, Date.now(), machine, missions) }
+}
+
+/** The "By <tag>" section, or the missions: a card per group (groupview.js). Pressing a card's name shows only its jobs. */
+const groupsHtml = (/** @type {string} */ tag, /** @type {Job[]} */ jobs, /** @type {Compute} */ c, /** @type {Filters} */ f) => {
+  const { missions, machine, groups } = groupsNow(tag, jobs, f)
+  const none = missions ? 'No mission is open, and no job shown carries a mission.' : `No job shown carries ${tag}.`
+  return groupsSection(missions ? 'Missions' : `By ${tag}`, tag, groups, c.resources, machine, none, missions ? 'lab' : '')
+}
+
 const draw = () => {
   const board = state.board
   if (!board) return
@@ -164,12 +189,17 @@ const draw = () => {
   $('floor').innerHTML = [`<option value="">All floors</option>`, ...floors.map((fl) => `<option value="${esc(fl.id)}"${fl.id === f.floor ? ' selected' : ''}>${esc(fl.name)}</option>`)].join('')
   const tagInput = /** @type {HTMLInputElement} */ ($('tag'))
   if (document.activeElement !== tagInput) tagInput.value = f.tag
+  const lab = labRuns(board)
+  const group = groupTag(f, lab)
+  const names = [...new Set([...(lab ? ['mission'] : []), ...tagNames(c.jobs), ...(group ? [group] : [])])]
+  $('group').innerHTML = [`<option value=""${group ? '' : ' selected'}>Nothing</option>`, ...names.map((k) => `<option value="${esc(k)}"${k === group ? ' selected' : ''}>${esc(lab && k === 'mission' ? 'mission · lab' : k)}</option>`)].join('')
   $('meter').innerHTML = meterHtml(c)
   const jobs = c.jobs.filter((j) => shown(j, f))
   const listed = jobs.filter((j) => j.told?.failed !== undefined && j.seenAt === undefined)
   const over = jobs.filter((j) => (j.status === 'over' || j.status === 'withdrawn') && !listed.includes(j)).reverse()
   $('main').innerHTML = [
     listed.length ? sectionHtml('On your list', listed, c, '') : '',
+    group ? groupsHtml(group, jobs, c, f) : '',
     sectionHtml('Running', jobs.filter((j) => j.status === 'running'), c, 'Nothing runs.'),
     sectionHtml('Queued', jobs.filter((j) => j.status === 'queued'), c, 'Nothing waits.'),
     sectionHtml('Over in the last day', over, c, 'Nothing ended in the last day.'),
@@ -299,6 +329,7 @@ document.addEventListener('click', (e) => {
   if (tag) setFilters({ ...filtersOf(), tag })
 })
 $('screen-close').addEventListener('click', closeScreen)
+$('group').addEventListener('change', (e) => setFilters({ ...filtersOf(), group: /** @type {HTMLSelectElement} */ (e.target).value }))
 $('floor').addEventListener('change', (e) => setFilters({ ...filtersOf(), floor: /** @type {HTMLSelectElement} */ (e.target).value }))
 $('tag').addEventListener('input', (e) => setFilters({ ...filtersOf(), tag: /** @type {HTMLInputElement} */ (e.target).value }))
 window.addEventListener('hashchange', draw)
@@ -347,6 +378,10 @@ const readMachine = async () => {
   } catch (err) {
     state.machine = { failed: `The machine can't be read: ${/** @type {Error} */ (err).message}` }
   }
+  // Each group's CPU at this read, for its sparkline: every job of the queue, whatever the page filters.
+  const f = filtersOf()
+  const tag = groupTag(f, labRuns(state.board))
+  if (tag && !('failed' in state.machine)) recordReadings(tag, groupsNow(tag, state.board.x.compute.jobs, { ...f, tag: '' }).groups, state.machine.at)
   draw()
 }
 setInterval(readMachine, 10_000)
