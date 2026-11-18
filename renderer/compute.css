@@ -127,9 +127,9 @@ button { font-family: var(--ui); }
 :is(button, select, input):focus-visible { outline: 3px solid color-mix(in oklab, var(--accent) 35%, transparent); outline-offset: 0; }
 
 /* Quiet controls, as the Lobby's: a white key with a hairline, its edge darkening when pointed at. */
-button.act, button.quiet { display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--sp-m); border: 1px solid var(--line); border-radius: var(--radius-s);
+:is(button.act, a.act), button.quiet { display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--sp-m); border: 1px solid var(--line); border-radius: var(--radius-s);
   background: var(--panel); color: var(--ink); font: 500 var(--fs-s)/1 var(--ui); cursor: pointer; }
-:is(button.act, button.quiet):hover { border-color: var(--line-strong); }
+:is(button.act, a.act, button.quiet):hover { border-color: var(--line-strong); }
 button.act.danger:hover { border-color: color-mix(in oklab, var(--needs) 60%, transparent); color: var(--needs-text); }
 
 /* ---- the chrome at the top: name, the meter, the filters ---- */
@@ -164,9 +164,9 @@ button.act.danger:hover { border-color: color-mix(in oklab, var(--needs) 60%, tr
 
 /* ---- the machine and who uses it: a band of tiles over the jobs, each a small card in the window (usage.js) ---- */
 /* Each owner of processes in a colour of its own, none of attention's (amber, red, green): workers wear the accent. */
-:root { --s-workers: var(--accent); --s-jobs: #0b8a7f; --s-other: #7c3aed; --s-shells: #c2185b; --s-tower: #6b7280; --s-rest: color-mix(in oklab, var(--ink) 16%, transparent); }
-@media (prefers-color-scheme: dark) { :root:not([data-scheme='light']) { --s-jobs: #2dd4bf; --s-other: #a78bfa; --s-shells: #f472b6; --s-tower: #9ca3af; } }
-:root[data-scheme='dark'] { --s-jobs: #2dd4bf; --s-other: #a78bfa; --s-shells: #f472b6; --s-tower: #9ca3af; }
+:root { --s-workers: var(--accent); --s-jobs: #008a7c; --s-other: #7c3aed; --s-shells: #c2185b; --s-tower: #6b7280; --s-rest: color-mix(in oklab, var(--ink) 16%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-scheme='light']) { --s-workers: #3d8cf0; --s-jobs: #14a892; --s-other: #a78bfa; --s-shells: #f472b6; --s-tower: #9ca3af; } }
+:root[data-scheme='dark'] { --s-workers: #3d8cf0; --s-jobs: #14a892; --s-other: #a78bfa; --s-shells: #f472b6; --s-tower: #9ca3af; }
 .s-workers { --s: var(--s-workers); } .s-jobs { --s: var(--s-jobs); } .s-other { --s: var(--s-other); }
 .s-shells { --s: var(--s-shells); } .s-tower { --s: var(--s-tower); } .s-rest { --s: var(--s-rest); }
 .usage { flex: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-m); margin: 0 var(--sp-m) var(--sp-m); }
@@ -250,6 +250,62 @@ section h2 .count { color: var(--faint); font: 500 var(--fs-s)/1 var(--ui); font
 .jobs tr:has(.listed) td { background: color-mix(in oklab, var(--needs) 5%, var(--panel)); }
 .jobs tr:has(.listed):hover td { background: color-mix(in oklab, var(--needs) 9%, var(--panel)); }
 .empty { padding: var(--sp-s) 0 var(--sp-m); color: var(--faint); font-size: var(--fs-s); }
+
+/* By a tag, or the lab's missions: a card per group (groupview.js), its name a key that filters the jobs to it. Its
+   bars and sparkline measure against the whole machine; teal is its jobs, blue its crew, as in Who uses it. */
+/* Which extension lends a section what compute doesn't know: a quiet pill in the accent beside its title. */
+section h2 .from { padding: 1px var(--sp-s); border-radius: var(--radius-pill); background: var(--accent-wash); color: var(--accent); font: 600 var(--fs-xs)/1.4 var(--ui); }
+section h2 .glegend { margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-xs) var(--sp-s); color: var(--faint); font: 400 var(--fs-xs)/1 var(--ui); }
+.glegend i { width: 10px; height: 10px; border-radius: 3px; background: var(--s); }
+.glegend i:not(:first-child) { margin-left: var(--sp-s); }
+.gcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-m); }
+.gcard { min-width: 0; display: grid; gap: var(--sp-m); align-content: start; padding: var(--sp-m) var(--sp-l); border: 1px solid var(--line); border-radius: var(--radius); font-size: var(--fs-s); }
+.gcard.closed { opacity: .72; }
+.ghead { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 var(--sp-s); }
+.gtitle { padding: 0; border: 0; background: none; color: var(--ink); font: 600 var(--fs-m)/1.3 var(--display); text-align: left; cursor: pointer; }
+.gtitle:hover { color: var(--accent); }
+.ghead .act { grid-row: 1; grid-column: 2; text-decoration: none; }
+.gmeta { grid-column: 1 / -1; color: var(--faint); font-size: var(--fs-xs); }
+.gnote { margin: 0; color: var(--faint); font-size: var(--fs-xs); }
+.gname { color: var(--muted); font-weight: 500; }
+.gval { justify-self: end; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gval small { color: var(--faint); font-weight: 400; font-size: var(--fs-xs); }
+/* The phases: a segment each, the ones done filled, the one it is in in the accent, ringed. */
+.steps { display: grid; gap: var(--sp-2xs); color: var(--muted); font-size: var(--fs-xs); }
+.steps .track { display: flex; gap: 2px; }
+.steps .track i { flex: 1; height: 6px; border-radius: 3px; background: color-mix(in oklab, var(--ink) 10%, transparent); }
+.steps .track i.done { background: color-mix(in oklab, var(--accent) 45%, transparent); }
+.steps .track i.now { background: var(--accent); }
+.gmeters { display: grid; gap: var(--sp-s); }
+.grow { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px var(--sp-s); }
+.gbar { grid-column: 1 / -1; display: flex; gap: 2px; height: 8px; border-radius: 4px; background: color-mix(in oklab, var(--ink) 8%, transparent); overflow: hidden; }
+.gbar i { display: block; height: 100%; min-width: 0; background: var(--s); }
+.gbar i:first-child { border-radius: 4px 0 0 4px; }
+.gbar i[style="width:0%"] { display: none; }
+.lamps { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 3px; }
+.lamps i { width: 10px; height: 10px; border-radius: 50%; background: color-mix(in oklab, var(--ink) 12%, transparent); }
+.lamps i.on { background: var(--accent); }
+.lamps.slots i { border-radius: 3px; width: 14px; }
+.lamps.slots i.on { background: var(--working); }
+/* CPU over the minutes the page watched: a 2px line over a light area, the machine read every 10 s. */
+.spark { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px var(--sp-s); }
+.spark svg { grid-column: 1 / -1; width: 100%; height: 36px; overflow: visible; }
+.spark .line { fill: none; stroke: var(--s-jobs); stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.spark .area { fill: color-mix(in oklab, var(--s-jobs) 16%, transparent); }
+.spark .hits rect { fill: transparent; }
+.spark .hits rect:hover { fill: color-mix(in oklab, var(--ink) 8%, transparent); }
+.spark.empty .gnote { grid-column: 1 / -1; }
+/* A dot per job, in the colour of where it stands: the words beside them say the counts. */
+.jstrip { display: grid; gap: var(--sp-2xs); }
+.dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.jdot { width: 10px; height: 10px; border-radius: 50%; background: var(--tone); }
+.d-working { --tone: var(--working); } .d-needs { --tone: var(--needs); } .d-ready { --tone: var(--ready); } .d-broken { --tone: var(--broken); } .d-quiet { --tone: var(--quiet); }
+.d-queued { background: none; box-shadow: inset 0 0 0 2px var(--quiet); }
+.crew { display: grid; gap: 2px; margin: 0; padding: var(--sp-s) 0 0; border-top: 1px solid var(--line); list-style: none; }
+.crew li { display: grid; grid-template-columns: 10px minmax(0, 1fr) 2.5em 4.5em; align-items: center; gap: var(--sp-s); }
+.crew li i { width: 10px; height: 10px; border-radius: 3px; background: var(--s); }
+.crew .n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.crew li.more { display: block; color: var(--faint); }
 
 /* ---- a job's screen, read only: a second card under the jobs ---- */
 .screen { flex: 0 0 40vh; display: flex; flex-direction: column; margin: var(--sp-m) var(--sp-m) 0; overflow: hidden; background: var(--panel); border-radius: var(--radius-l);
