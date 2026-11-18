@@ -92,8 +92,12 @@ const sparkline = (/** @type {string} */ key, /** @type {number} */ now) => {
   const y = (/** @type {Reading} */ r) => 30 - (r.cpu / top) * 28
   const line = list.map((r) => `${x(r).toFixed(2)},${y(r).toFixed(2)}`).join(' ')
   const peak = Math.max(...list.map((r) => r.cpu))
-  const w = 100 / list.length
-  const hits = list.map((r, i) => `<rect x="${Math.max(0, x(r) - w / 2).toFixed(2)}" y="0" width="${w.toFixed(2)}" height="32"><title>${esc(`${ago(now - r.at)}: ${cores(r.cpu)} cores`)}</title></rect>`).join('')
+  // Each reading's band runs from the midpoint with the one before to the midpoint with the one after, inside 0–100: the
+  // bands tile the chart, none overlaps its neighbour or spills past the card's edge.
+  const mid = (/** @type {number} */ i) => (i <= 0 ? 0 : i >= list.length ? 100 : (x(list[i - 1]) + x(list[i])) / 2)
+  const hits = list
+    .map((r, i) => `<rect x="${mid(i).toFixed(2)}" y="0" width="${(mid(i + 1) - mid(i)).toFixed(2)}" height="32" data-tip="${esc(`${ago(now - r.at)}: ${cores(r.cpu)} cores`)}"></rect>`)
+    .join('')
   return `<div class="spark"><span class="gname">CPU, last ${Math.max(1, Math.round((now - t0) / 60_000))} min</span><span class="gval">peak ${esc(cores(peak))}<small> cores</small></span>
     <svg viewBox="0 0 100 32" preserveAspectRatio="none" role="img" aria-label="${esc(`CPU over the last minutes, peak ${cores(peak)} cores`)}">
       <polygon class="area" points="0,32 ${line} 100,32"></polygon><polyline class="line" points="${line}"></polyline><g class="hits">${hits}</g>
