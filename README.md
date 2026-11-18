@@ -113,7 +113,10 @@ withdrawn one grey.
 
 | Dark | Light |
 | --- | --- |
-| ![The Compute page, dark](docs/shots/page-dark.png) | ![The Compute page, light](docs/shots/page-light.png) |
+| ![The Compute page, dark: three lab missions as cards, over the running jobs](docs/shots/page-dark.png) | ![The Compute page, light: three lab missions as cards, over the running jobs](docs/shots/page-light.png) |
+
+With the lab running: each mission's phase, its CPU and memory against the machine's, its lanes and cap slots, its CPU
+over the last minutes and a dot per job.
 
 ![A job's live screen at the page's foot](docs/shots/screen.png)
 
