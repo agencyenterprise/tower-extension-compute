@@ -118,15 +118,15 @@ way. `contract.json` lists the names held at major 1: they only grow within it.
 
 ## Add it
 
-It needs the tower 2.10 or later (a job's `pid` on the board) and Node 24, and nothing else: it has no runtime
+It needs the tower 2.13 or later (a job's `pid` on the board, and a renderer declared in the manifest) and Node 24, and nothing else: it has no runtime
 dependencies.
 
 ```sh
 git clone git@github.com:agencyenterprise/tower-extension-compute.git
 ```
 
-Then name its folder in the tower's config (`~/.tower/config.json`), with the machine's resources. An extension can't
-declare a renderer, so the config names the page's folder too:
+Then name its folder in the tower's config (`~/.tower/config.json`), with the machine's resources. The extension
+declares its page itself (`renderers.compute`, the `renderer/` folder), so the config needs no `renderers` entry:
 
 ```json
 {
@@ -135,8 +135,7 @@ declare a renderer, so the config names the page's folder too:
       "path": "/Users/you/code/tower-extension-compute",
       "settings": { "resources": { "lanes": 6, "gpu": 1 }, "defaultNeeds": { "lanes": 1 } }
     }
-  },
-  "renderers": { "compute": { "root": "/Users/you/code/tower-extension-compute/renderer" } }
+  }
 }
 ```
 
