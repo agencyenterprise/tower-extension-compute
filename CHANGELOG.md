@@ -8,6 +8,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.4] - 2026-11-18
+
 ### Added
 - `tower x compute machine` (the read `compute/machine`): the machine's load, memory and disk, and every process's CPU
   and memory by owner: each worker, whatever its runtime, each compute job, other jobs, the tower's shells, the tower
@@ -57,7 +59,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.3...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.4...HEAD
+[1.4]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.3...v1.4
 [1.3]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.2...v1.3
 [1.2]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.1...v1.2
 [1.1]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.0...v1.1

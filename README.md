@@ -151,7 +151,7 @@ A floor's shelf can frame the page beside its sessions: `{ "label": "Compute", "
 
 ## Which version you run
 
-The Compute page's foot shows it: **Compute 1.3**, as the tower loaded it, with its state when it isn't running. Its
+The Compute page's foot shows it: **Compute 1.4**, as the tower loaded it, with its state when it isn't running. Its
 tip names the tower's version too; press it to copy that line, for a bug report. `tower extensions` says the same.
 
 The version is `extension.json`'s `version`, `major.minor` as the tower reads it. A major breaks what other
