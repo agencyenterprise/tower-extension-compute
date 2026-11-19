@@ -8,6 +8,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.8] - 2026-11-19
+
 ### Fixed
 - A job's screen scrolls once, as a Claude terminal does: it is as many rows high as the card holds, its earlier output
   in the terminal's own scrollback, so one scrollbar and the wheel reach all of it. It used to show the job's 40 rows
@@ -95,7 +97,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.7...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.8...HEAD
+[1.8]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.7...v1.8
 [1.7]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.6...v1.7
 [1.6]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.5...v1.6
 [1.5]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.4...v1.5
