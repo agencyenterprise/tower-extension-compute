@@ -313,9 +313,10 @@ section h2 .glegend { margin-left: auto; display: inline-flex; align-items: cent
 .screen[hidden] { display: none; }
 .screen-head { display: flex; align-items: center; gap: var(--sp-m); padding: var(--sp-s) var(--sp-s) var(--sp-s) var(--sp-xl); border-bottom: 1px solid var(--line); font-size: var(--fs-s); }
 .screen-head span { flex: 1; font-weight: 600; }
-/* The screen's well fills the card under its head, in the terminal's own ground, and scrolls the job's cells, drawn at
-   the viewer's terminal size (compute.js, openScreen). */
-.screen-term { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-s) var(--sp-m); background: var(--term-bg); color-scheme: dark; }
+/* The screen's well fills the card under its head, in the terminal's own ground. The job draws as many rows high as it
+   holds, its output scrolling in xterm's own scrollback, and the PTY's columns wide at the viewer's terminal size, the
+   well scrolling sideways when the card is narrower (compute.js, openScreen). */
+.screen-term { flex: 1; min-height: 0; overflow: auto hidden; padding: var(--sp-s) var(--sp-m); background: var(--term-bg); color-scheme: dark; }
 .screen-cells { flex: none; }
 
 /* ---- which version runs, in the chrome at the page's foot ---- */

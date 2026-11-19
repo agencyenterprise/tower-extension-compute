@@ -220,10 +220,12 @@ const cellOf = (/** @type {{ family: string, size: number }} */ { family, size }
 }
 
 /**
- * A job's PTY has its own size (the jobs daemon's 120×40), and a view that only watches draws it at the largest font at
- * which all its cells fit the box, at most the viewer's terminal size. In a card a third of the page high, that is the
- * smallest font there is. So the cells get a box of their full size at the viewer's font, as the tower page's terminals
- * draw, and the well around it scrolls, following the cursor as the job writes.
+ * A job's PTY has its own size (the jobs daemon's 120×40), and nobody can resize it: a view that only watches would draw
+ * it at the largest font at which all its cells fit the box, in a card a third of the page high the smallest font there
+ * is. So the job is drawn as the tower page draws a terminal it holds: at the viewer's font, the PTY's columns wide and
+ * as many rows high as the card holds, xterm's own scrollback taking the lines above them, its one scrollbar reaching
+ * all of the output. A job takes no input and writes lines, which scroll the same in fewer rows; a program that moves
+ * its cursor about the PTY's 40 rows would draw out of place.
  */
 const openScreen = async (/** @type {number} */ n) => {
   /** @type {Job | undefined} */
@@ -234,7 +236,6 @@ const openScreen = async (/** @type {number} */ n) => {
   $('screen-title').textContent = `#${j.n} ${j.label} · ${j.job}`
   const well = $('screen-term')
   well.innerHTML = ''
-  well.scrollTop = 0
   const host = document.createElement('div')
   host.className = 'screen-cells'
   well.append(host)
@@ -242,20 +243,21 @@ const openScreen = async (/** @type {number} */ n) => {
   await loadTerminalFont(font())
   const xterm = { Terminal: /** @type {any} */ (window).Terminal, FitAddon: /** @type {any} */ (window).FitAddon.FitAddon }
   const id = j.job
-  /** The box for the PTY's cells at the viewer's font, set before the view draws them. */
+  /** The PTY's size, once the stream says it. */
+  let pty = { cols: 0, rows: 0 }
+  /** How many rows the well holds at the viewer's font, at most the PTY's. */
+  const rowsHeld = (/** @type {number} */ ptyRows) => {
+    const pad = parseFloat(getComputedStyle(well).paddingTop) + parseFloat(getComputedStyle(well).paddingBottom)
+    return Math.max(1, Math.min(ptyRows, Math.floor((well.clientHeight - pad) / cellOf(font()).height)))
+  }
+  /** The view's size: the PTY's columns, the well's rows; its box set to it at the viewer's font before it draws. */
   const size = (/** @type {{ cols: number, rows: number }} */ { cols, rows }) => {
+    pty = { cols, rows }
+    const held = rowsHeld(rows)
     const cell = cellOf(font())
     host.style.width = `${Math.ceil(cols * cell.width)}px`
-    host.style.height = `${Math.ceil(rows * cell.height)}px`
-  }
-  /** The cursor's row in sight: the job writes there. */
-  const follow = () => {
-    const term = handle.term()
-    if (!term) return
-    const row = host.offsetHeight / term.rows
-    const top = term.buffer.active.cursorY * row
-    if (top + row > well.scrollTop + well.clientHeight) well.scrollTop = top + row - well.clientHeight
-    else if (top < well.scrollTop) well.scrollTop = top
+    host.style.height = `${Math.ceil(held * cell.height)}px`
+    return { cols, rows: held }
   }
   /**
    * The terminal's ground is the card's graphite (`--term-bg`), not the core's enamel: the library takes only a scheme,
@@ -266,17 +268,20 @@ const openScreen = async (/** @type {number} */ n) => {
     if (!term) return
     const bg = getComputedStyle(well).getPropertyValue('--term-bg').trim()
     term.options.theme = { ...term.options.theme, background: bg, cursorAccent: bg }
-    term.onCursorMove(follow)
   }
+  /** @type {(msg: any) => void} */
+  let feed = () => {}
   const handle = mountTermView(host, xterm, {
-    watch: (on) =>
-      tower.watch(`job/${id}/screen`, (/** @type {any} */ msg) => {
-        if (msg.t === 'snapshot') return size(msg), on({ ...msg, terminals: 1 }), ground(), follow()
-        if (msg.t === 'r') size(msg)
+    watch: (on) => {
+      feed = on
+      return tower.watch(`job/${id}/screen`, (/** @type {any} */ msg) => {
+        if (msg.t === 'snapshot') return on({ ...msg, ...size(msg), terminals: 1 }), ground()
+        if (msg.t === 'r') return on({ t: 'r', ...size(msg) })
         if (msg.t === 'x') return on({ t: 'x', exitCode: msg.exit ?? 1 })
         if (msg.t === 'error') return toast(`The tower no longer keeps that job's screen: ${msg.message ?? ''}`)
         on(msg)
-      }),
+      })
+    },
     resize: () => Promise.resolve(),
     send: () => {},
     wheelReports: false,
@@ -289,7 +294,15 @@ const openScreen = async (/** @type {number} */ n) => {
     end: () => {},
     error: (err) => toast(err.message),
   })
-  state.screen = { n, close: () => handle.close() }
+  /** The window grows or shrinks the card: the view takes the rows it now holds. */
+  const seen = new ResizeObserver(() => {
+    const term = handle.term()
+    if (!term || !pty.cols) return
+    const next = size(pty)
+    if (next.rows !== term.rows) feed({ t: 'r', ...next })
+  })
+  seen.observe(well)
+  state.screen = { n, close: () => (seen.disconnect(), handle.close()) }
 }
 
 const closeScreen = () => {
