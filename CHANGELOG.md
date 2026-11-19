@@ -8,6 +8,12 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+### Fixed
+- A job's screen scrolls once, as a Claude terminal does: it is as many rows high as the card holds, its earlier output
+  in the terminal's own scrollback, so one scrollbar and the wheel reach all of it. It used to show the job's 40 rows
+  in a box that scrolled, the history in a second scrollbar inside it that the wheel moved alone. The screen fits the
+  card again as the window is resized; a card narrower than the job's 120 columns scrolls sideways.
+
 ## [1.7] - 2026-11-18
 
 ### Fixed
