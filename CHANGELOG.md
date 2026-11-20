@@ -8,6 +8,12 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+### Changed
+- The Compute page shows each section's jobs 50 at a time, so a busy day no longer slows it down. A section with more
+  has a pager under its table: first, back, where the page sits ("51–100 of 312"), on, and last. Over in the last day
+  goes Newer and Older, newest first. Changing the floor, the tag or the grouping starts every section at its first
+  page again.
+
 ## [1.8] - 2026-11-19
 
 ### Fixed
