@@ -250,6 +250,11 @@ section h2 .count { color: var(--faint); font: 500 var(--fs-s)/1 var(--ui); font
 .jobs tr:has(.listed) td { background: color-mix(in oklab, var(--needs) 5%, var(--panel)); }
 .jobs tr:has(.listed):hover td { background: color-mix(in oklab, var(--needs) 9%, var(--panel)); }
 .empty { padding: var(--sp-s) 0 var(--sp-m); color: var(--faint); font-size: var(--fs-s); }
+/* A section's pages, under its table: where this page sits among its jobs, and keys to the others. */
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-s); padding: var(--sp-s) 0 0; border-top: 1px solid var(--line); }
+.pager .pos { padding: 0 var(--sp-s); color: var(--faint); font-size: var(--fs-s); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pager button.act:disabled { opacity: .45; cursor: default; }
+.pager button.act:disabled:hover { border-color: var(--line); }
 
 /* By a tag, or the lab's missions: a card per group (groupview.js), its name a key that filters the jobs to it. Its
    bars and sparkline measure against the whole machine; teal is its jobs, blue its crew, as in Who uses it. */

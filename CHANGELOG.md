@@ -8,6 +8,14 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.9] - 2026-11-20
+
+### Changed
+- The Compute page shows each section's jobs 50 at a time, so a busy day no longer slows it down. A section with more
+  has a pager under its table: first, back, where the page sits ("51–100 of 312"), on, and last. Over in the last day
+  goes Newer and Older, newest first. Changing the floor, the tag or the grouping starts every section at its first
+  page again.
+
 ## [1.8] - 2026-11-19
 
 ### Fixed
@@ -97,7 +105,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.8...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.9...HEAD
+[1.9]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.8...v1.9
 [1.8]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.7...v1.8
 [1.7]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.6...v1.7
 [1.6]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.5...v1.6

@@ -25,8 +25,14 @@ import { groupsSection, recordReadings } from './groupview.js'
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id))
 
-/** @type {{ board?: any, machine?: import('./usage.js').Machine | { failed: string }, screen?: { n: number, close: () => void } }} */
-const state = {}
+/**
+ * `pages`: the page each section shows, by its key, from 0; a section the map doesn't name shows its first.
+ * @type {{ board?: any, machine?: import('./usage.js').Machine | { failed: string }, screen?: { n: number, close: () => void }, pages: Record<string, number> }}
+ */
+const state = { pages: {} }
+
+/** The rows a section draws at once: a day of a busy lab ends hundreds of jobs, and the page redraws every board. */
+const PAGE = 50
 
 // ---------- the filters, in the hash ----------
 
@@ -44,6 +50,8 @@ const setFilters = (/** @type {Filters} */ f) => {
   if (f.tag) q.set('tag', f.tag)
   if (f.group !== null) q.set('group', f.group)
   history.replaceState(null, '', q.size ? `#${q}` : location.pathname)
+  // Other filters, other jobs: each section opens again at its first page.
+  state.pages = {}
   draw()
 }
 
@@ -146,15 +154,56 @@ const rowHtml = (/** @type {Job} */ j, /** @type {Compute} */ c) => {
   </tr>`
 }
 
-const sectionHtml = (/** @type {string} */ title, /** @type {Job[]} */ jobs, /** @type {Compute} */ c, /** @type {string} */ none) => `
-  <section>
+/**
+ * The page of a section's jobs it shows, held in `state.pages` under `key` and kept within its pages as jobs come and
+ * go: a page emptied by jobs ending shows the last one left.
+ */
+const pageOf = (/** @type {string} */ key, /** @type {number} */ total) => {
+  const last = Math.max(0, Math.ceil(total / PAGE) - 1)
+  const page = Math.min(state.pages[key] ?? 0, last)
+  if (page) state.pages[key] = page
+  else delete state.pages[key]
+  return { page, last }
+}
+
+/** Under a section's table when its jobs run past a page: which of them it shows, and the way to the others. */
+const pagerHtml = (/** @type {string} */ key, /** @type {number} */ page, /** @type {number} */ last, /** @type {number} */ total, /** @type {[string, string]} */ [back, on]) => {
+  if (!last) return ''
+  const first = page * PAGE + 1
+  const to = Math.min(total, first + PAGE - 1)
+  const button = (/** @type {number} */ p, /** @type {string} */ word, /** @type {string} */ tip) =>
+    `<button type="button" class="act" data-page="${esc(key)}" data-to="${p}"${p < 0 || p > last ? ' disabled' : ` data-tip="${esc(tip)}"`}>${esc(word)}</button>`
+  return `<nav class="pager" aria-label="${esc(`Pages of ${key}`)}">
+    ${button(0, '«', 'The first page')}${button(page - 1, back, `${back}: the page before`)}
+    <span class="pos">${first}–${to} of ${total}</span>
+    ${button(page + 1, on, `${on}: the page after`)}${button(last, '»', 'The last page')}
+  </nav>`
+}
+
+/**
+ * A section of jobs, a page of them at a time (`PAGE`). `key` names it in `state.pages`; `turn` is the words for the
+ * page before and the page after, as its order reads.
+ */
+const sectionHtml = (
+  /** @type {string} */ key,
+  /** @type {string} */ title,
+  /** @type {Job[]} */ jobs,
+  /** @type {Compute} */ c,
+  /** @type {string} */ none,
+  /** @type {[string, string]} */ turn = ['Earlier', 'Later'],
+) => {
+  const { page, last } = pageOf(key, jobs.length)
+  const rows = jobs.slice(page * PAGE, (page + 1) * PAGE)
+  return `
+  <section data-section="${esc(key)}">
     <h2>${esc(title)}<span class="count">${jobs.length}</span></h2>
     ${
       jobs.length
-        ? `<table class="jobs"><colgroup><col class="c-n"><col><col class="c-who"><col class="c-state"><col class="c-time"><col class="c-holds needs-col"><col class="c-acts"></colgroup><thead><tr><th>#</th><th>Job</th><th>Who</th><th>Where it stands</th><th>Time</th><th class="needs-col">Holds</th><th></th></tr></thead><tbody>${jobs.map((j) => rowHtml(j, c)).join('')}</tbody></table>`
+        ? `<table class="jobs"><colgroup><col class="c-n"><col><col class="c-who"><col class="c-state"><col class="c-time"><col class="c-holds needs-col"><col class="c-acts"></colgroup><thead><tr><th>#</th><th>Job</th><th>Who</th><th>Where it stands</th><th>Time</th><th class="needs-col">Holds</th><th></th></tr></thead><tbody>${rows.map((j) => rowHtml(j, c)).join('')}</tbody></table>${pagerHtml(key, page, last, jobs.length, turn)}`
         : `<div class="jobs empty">${esc(none)}</div>`
     }
   </section>`
+}
 
 /**
  * The groups of the jobs by `tag` (groups.js): with the lab's missions on the floors the filter keeps when the tag is
@@ -198,11 +247,12 @@ const draw = () => {
   const listed = jobs.filter((j) => j.told?.failed !== undefined && j.seenAt === undefined)
   const over = jobs.filter((j) => (j.status === 'over' || j.status === 'withdrawn') && !listed.includes(j)).reverse()
   $('main').innerHTML = [
-    listed.length ? sectionHtml('On your list', listed, c, '') : '',
+    listed.length ? sectionHtml('listed', 'On your list', listed, c, '') : '',
     group ? groupsHtml(group, jobs, c, f) : '',
-    sectionHtml('Running', jobs.filter((j) => j.status === 'running'), c, 'Nothing runs.'),
-    sectionHtml('Queued', jobs.filter((j) => j.status === 'queued'), c, 'Nothing waits.'),
-    sectionHtml('Over in the last day', over, c, 'Nothing ended in the last day.'),
+    sectionHtml('running', 'Running', jobs.filter((j) => j.status === 'running'), c, 'Nothing runs.'),
+    sectionHtml('queued', 'Queued', jobs.filter((j) => j.status === 'queued'), c, 'Nothing waits.'),
+    // Newest first: its first page is what just ended.
+    sectionHtml('over', 'Over in the last day', over, c, 'Nothing ended in the last day.', ['Newer', 'Older']),
   ].join('')
 }
 
@@ -335,12 +385,21 @@ const act = async (/** @type {HTMLButtonElement} */ button, /** @type {string} *
 document.addEventListener('click', (e) => {
   const button = /** @type {HTMLElement} */ (e.target).closest('button')
   if (!button) return
-  const { cancel, seen, screen, tag } = button.dataset
+  const { cancel, seen, screen, tag, page, to } = button.dataset
   if (cancel) void act(/** @type {HTMLButtonElement} */ (button), 'compute/cancel', Number(cancel))
   if (seen) void act(/** @type {HTMLButtonElement} */ (button), 'compute/seen', Number(seen))
   if (screen) void openScreen(Number(screen))
   if (tag) setFilters({ ...filtersOf(), tag })
+  if (page) turnPage(page, Number(to))
 })
+
+/** Shows another page of a section, its head kept in sight when the page was scrolled past it. */
+const turnPage = (/** @type {string} */ key, /** @type {number} */ page) => {
+  state.pages[key] = page
+  draw()
+  const section = /** @type {HTMLElement | null} */ ($('main').querySelector(`section[data-section="${CSS.escape(key)}"]`))
+  if (section && section.getBoundingClientRect().top < $('main').getBoundingClientRect().top) section.scrollIntoView({ block: 'start' })
+}
 $('screen-close').addEventListener('click', closeScreen)
 $('group').addEventListener('change', (e) => setFilters({ ...filtersOf(), group: /** @type {HTMLSelectElement} */ (e.target).value }))
 $('floor').addEventListener('change', (e) => setFilters({ ...filtersOf(), floor: /** @type {HTMLSelectElement} */ (e.target).value }))
