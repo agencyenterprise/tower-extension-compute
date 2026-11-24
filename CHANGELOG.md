@@ -8,6 +8,13 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
 
 ## [Unreleased]
 
+## [1.10] - 2026-11-24
+
+### Fixed
+- On the Compute page, a running job's time no longer spills into the Holds column ("3 h 25 min of 8 hlanes 1"): the
+  time it has run sits on top, the hours it was given ("of 8 h") on a smaller line under it. Holds reads the count
+  first, "1 lane" or "2 lanes", and a cell too long for its column ends in "…" instead of running into the next.
+
 ## [1.9] - 2026-11-20
 
 ### Changed
@@ -105,7 +112,8 @@ meaning); every other release is a **minor**, fixes included. How to cut one:
   leaves outside itself.
 - Whoever queued a job is told at their prompt once it's over.
 
-[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.9...HEAD
+[Unreleased]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.10...HEAD
+[1.10]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.9...v1.10
 [1.9]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.8...v1.9
 [1.8]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.7...v1.8
 [1.7]: https://github.com/agencyenterprise/tower-extension-compute/compare/v1.6...v1.7
