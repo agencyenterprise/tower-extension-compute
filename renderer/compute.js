@@ -78,7 +78,7 @@ const ago = (/** @type {number} */ at) => `${duration(Date.now() - at)} ago`
 const hoursWords = (/** @type {number} */ h) => (h < 1 ? duration(h * 3_600_000) : `${h} h`)
 const needsWords = (/** @type {Record<string, number>} */ needs) =>
   Object.entries(needs)
-    .map(([k, u]) => `${k} ${u}`)
+    .map(([k, u]) => `${u} ${u === 1 && k.endsWith('s') ? k.slice(0, -1) : k}`)
     .join(', ') || 'nothing'
 
 /** What a queued job waits for, as compute decides it: units of a resource, or room under one of its caps. */
@@ -110,10 +110,10 @@ const stateOf = (/** @type {Job} */ j, /** @type {Compute} */ c) => {
   return { word: j.outcome ?? 'over', tone: ok ? 'ready' : 'broken', why: told }
 }
 
-/** The time column: how long it has waited, run, or took, and when. */
+/** The time column: how long it has waited, run, or took, and when; a running job's hours go on a line under it. */
 const timeOf = (/** @type {Job} */ j) => {
   if (j.status === 'queued') return `waiting ${duration(Date.now() - j.queuedAt)}`
-  if (j.status === 'running') return `${duration(Date.now() - (j.startedAt ?? Date.now()))}${j.hours !== undefined ? ` of ${hoursWords(j.hours)}` : ''}`
+  if (j.status === 'running') return duration(Date.now() - (j.startedAt ?? Date.now()))
   if (j.status === 'withdrawn') return j.withdrawnAt ? ago(j.withdrawnAt) : ''
   return j.endedAt ? ago(j.endedAt) : j.told ? ago(j.told.at) : ''
 }
@@ -148,7 +148,7 @@ const rowHtml = (/** @type {Job} */ j, /** @type {Compute} */ c) => {
     <td><span class="label one-line" data-tip="${esc(j.label)}">${esc(j.label)}</span><code class="cmd one-line" data-tip="${esc(`${j.argv.join(' ')}\nin ${j.cwd}`)}">${esc(j.argv.join(' '))}</code>${tags ? `<div class="chips">${tags}</div>` : ''}</td>
     <td class="who">${esc(j.callsign ?? (j.by === 'user' ? 'you' : j.by))}<small>${esc(j.project)}</small></td>
     <td><span class="state t-${s.tone}">${esc(s.word)}</span>${s.why ? `<span class="why">${esc(s.why)}</span>` : ''}${listed ? `<span class="listed">on your list: ${esc(j.told?.failed ?? '')}</span>` : ''}</td>
-    <td class="time">${esc(timeOf(j))}</td>
+    <td class="time">${esc(timeOf(j))}${j.status === 'running' && j.hours !== undefined ? `<small>of ${esc(hoursWords(j.hours))}</small>` : ''}</td>
     <td class="needs-col">${esc(needsWords(j.needs))}</td>
     <td class="acts">${acts}</td>
   </tr>`

@@ -227,8 +227,9 @@ section h2 .count { color: var(--faint); font: 500 var(--fs-s)/1 var(--ui); font
 .jobs .cmd { display: block; margin-top: 1px; color: var(--faint); font: var(--fs-xs) var(--mono); max-width: 36em; }
 .jobs .who { white-space: nowrap; font-weight: 500; }
 .jobs .who small { display: block; color: var(--faint); font-weight: 400; }
-.jobs .time { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
-.jobs .needs-col { color: var(--muted); }
+.jobs .time { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-variant-numeric: tabular-nums; }
+.jobs .time small { display: block; color: var(--faint); font-size: var(--fs-xs); }
+.jobs .needs-col { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jobs .acts { white-space: nowrap; text-align: right; }
 .jobs .acts button + button { margin-left: var(--sp-s); }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--sp-xs); }
